@@ -154,6 +154,18 @@ function rr(ctx, x, y, w, h, r) {
   ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
 }
 
+// Rounded corners for a finished label canvas. r = corner radius at the cut line; with bleed the
+// rounding grows by the bleed so it stays concentric with the cut. bg fills the cut-off corners
+// (white for print, where JPEG has no transparency); without bg they stay transparent.
+function roundLabel(c, st, mm, blx, bly, bg) {
+  const out = document.createElement("canvas"); out.width = c.width; out.height = c.height;
+  const ctx = out.getContext("2d");
+  if (bg) { ctx.fillStyle = bg; ctx.fillRect(0, 0, out.width, out.height); }
+  rr(ctx, 0, 0, out.width, out.height, (st.r || 3) * mm + Math.min(blx, bly));
+  ctx.clip(); ctx.drawImage(c, 0, 0);
+  return out;
+}
+
 function wrap(ctx, text, maxW) {
   const words = String(text).split(/\s+/).filter(Boolean); const lines = []; let cur = "";
   for (const w of words) {
@@ -272,6 +284,11 @@ const countText = (n) => `${n} ${n % 10 === 1 && n % 100 !== 11 ? "bók" : "bæk
 // Returns a canvas of the label incl. bleed. opts: {style, color: 'cover'|'type', brand, brandText}
 // extras = more cover images for a series (drawn behind the main cover in the classic style).
 function drawCard(item, img, opts, px, withBleed = true, extras = []) {
+  const st = geom(opts), blx = withBleed ? st.bx * px : 0, bly = withBleed ? st.by * px : 0;
+  return roundLabel(drawCardSquare(item, img, opts, px, withBleed, extras), st, px, blx, bly, withBleed ? "#fff" : null);
+}
+
+function drawCardSquare(item, img, opts, px, withBleed = true, extras = []) {
   const st = geom(opts), mm = px;
   const blx = withBleed ? st.bx * mm : 0, bly = withBleed ? st.by * mm : 0, W = st.w * mm, H = st.h * mm;
   const c = document.createElement("canvas"); c.width = Math.round(W + 2 * blx); c.height = Math.round(H + 2 * bly);
@@ -483,6 +500,11 @@ function shortNames(names) {
 }
 
 function drawBack(item, opts, px, withBleed = true, img = null) {
+  const st = geom(opts), blx = withBleed ? st.bx * px : 0, bly = withBleed ? st.by * px : 0;
+  return roundLabel(drawBackSquare(item, opts, px, withBleed, img), st, px, blx, bly, withBleed ? "#fff" : null);
+}
+
+function drawBackSquare(item, opts, px, withBleed = true, img = null) {
   const st = geom(opts), mm = px;
   const blx = withBleed ? st.bx * mm : 0, bly = withBleed ? st.by * mm : 0, W = st.w * mm, H = st.h * mm;
   const c = document.createElement("canvas"); c.width = Math.round(W + 2 * blx); c.height = Math.round(H + 2 * bly);
@@ -882,8 +904,8 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
     if (it._colorFor !== it.image) { it.color = coverColor(img); it._colorFor = it.image; }
     const extras = await Promise.all((it.stack || []).map(loadImage));
     const o = this._drawOpts();
-    it.preview = drawCard(it, img, o, PREVIEW_PX, false, extras).toDataURL("image/jpeg", 0.85);
-    it.backPreview = o.back ? drawBack(it, o, PREVIEW_PX, false, img).toDataURL("image/jpeg", 0.85) : "";
+    it.preview = drawCard(it, img, o, PREVIEW_PX, false, extras).toDataURL("image/webp", 0.85);
+    it.backPreview = o.back ? drawBack(it, o, PREVIEW_PX, false, img).toDataURL("image/webp", 0.85) : "";
   }
 
   // small preview of each style, drawn with one of your own labels
@@ -893,7 +915,7 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
     const img = await loadImage(it.image), extras = await Promise.all((it.stack || []).map(loadImage));
     this._thumbs = {};
     for (const k of Object.keys(STYLES)) {
-      this._thumbs[k] = drawCard(it, img, { ...this._drawOpts(), style: k }, 70 / 25.4, false, extras).toDataURL("image/jpeg", 0.8);
+      this._thumbs[k] = drawCard(it, img, { ...this._drawOpts(), style: k }, 70 / 25.4, false, extras).toDataURL("image/webp", 0.8);
     }
   }
 
