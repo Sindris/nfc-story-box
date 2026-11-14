@@ -20,7 +20,7 @@
         "title": "Vordísarvarpið",
         "data": {
           "reader_device": "NFC lesari",
-          "player": "Hátalari (Music Assistant spilari)",
+          "player": "Hátalari (aðeins Music Assistant spilarar)",
           "button_event": "Takkar (event-eining)",
           "card_present": "Kort á lesara (binary sensor)",
           "start_volume": "Upphafsstyrkur (0 = breyta ekki)",
@@ -41,7 +41,7 @@
       "init": {
         "title": "Vordísarvarpið",
         "data": {
-          "player": "Hátalari (Music Assistant spilari)",
+          "player": "Hátalari (aðeins Music Assistant spilarar)",
           "button_event": "Takkar (event-eining)",
           "card_present": "Kort á lesara (binary sensor)",
           "start_volume": "Upphafsstyrkur (0 = breyta ekki)",

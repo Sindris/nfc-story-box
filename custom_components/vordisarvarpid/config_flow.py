@@ -46,7 +46,7 @@ def _schema(defaults: dict[str, Any], *, with_reader: bool = True) -> vol.Schema
         )
     fields.update({
         vol.Required(CONF_PLAYER, default=defaults.get(CONF_PLAYER, vol.UNDEFINED)): selector.EntitySelector(
-            selector.EntitySelectorConfig(domain="media_player")
+            selector.EntitySelectorConfig(domain="media_player", integration="music_assistant")
         ),
         vol.Optional(CONF_BUTTON_EVENT, description={"suggested_value": defaults.get(CONF_BUTTON_EVENT)}): selector.EntitySelector(
             selector.EntitySelectorConfig(domain="event")
