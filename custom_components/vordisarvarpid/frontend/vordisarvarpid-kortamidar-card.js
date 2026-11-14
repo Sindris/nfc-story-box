@@ -1104,7 +1104,7 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
     this._printOpen = false; this._menu = false; this._find = null; this._ser = null; this._msg = "";
     if (i >= 0) {
       this._scan = null; this._scanned = cards[i].id;
-      this._panelPanel(i, "spilar");
+      this._openPanel(i, "spilar");
     } else {
       this._scan = { id: s.tag_id, i: -1 }; this._panel = -1; this._render();
       requestAnimationFrame(() => { const el = this.shadowRoot.querySelector(".scan"); if (el && el.scrollIntoView) el.scrollIntoView({ block: "center", behavior: "smooth" }); });
@@ -1769,7 +1769,7 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
       const cards = this._editCards();
       cards.push({ id: newId(), name: "", tag_id: tag || this._placeholder(), media_type: "audiobook", shuffle: false });
       this._dirty = true; this._info = null;
-      this._panelPanel(cards.length - 1, "spilar");
+      this._openPanel(cards.length - 1, "spilar");
       const inp = root.getElementById("q" + (cards.length - 1)); if (inp) inp.focus();
     };
     // top bar
@@ -1791,7 +1791,7 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
     on("scanNew", "onclick", () => { const id = this._scan.id; this._scan.i = this._editCards().length; newCard(id); });
     on("scanLink", "onclick", () => {
       const i = +$("scanTo").value;
-      this._scan.i = i; this._change(i, "tag_id", this._scan.id); this._panelPanel(i, "kort");
+      this._scan.i = i; this._change(i, "tag_id", this._scan.id); this._openPanel(i, "kort");
     });
     // grid
     const selectAll = (fn) => { items.forEach((it) => { const v = fn(it); if (v !== it.include) this._setLabel(it, { include: v ? null : false }); it.include = v; }); this._render(); };
@@ -1807,7 +1807,7 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
     }));
     q("[data-tile]").forEach((el) => {
       const i = +el.dataset.tile, it = items[i];
-      el.onclick = () => { this._scanned = null; this._panelPanel(i, this._ptab || "spilar"); };
+      el.onclick = () => { this._scanned = null; this._openPanel(i, this._ptab || "spilar"); };
       el.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); el.onclick(); } };
       el.ondragstart = (e) => { e.dataTransfer.setData("text/x-vordis-card", String(i)); e.dataTransfer.effectAllowed = "move"; };
       el.ondragover = (e) => {
@@ -2160,6 +2160,9 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
         .dlg-f { position:sticky; bottom:0; display:flex; gap:8px; align-items:center; padding:10px 16px; border-top:1px solid var(--divider-color);
                  background:var(--card-background-color, #fff); border-radius:0 0 20px 20px; }
         .kf .fld select { flex:1; min-width:160px; }
+        .kf label.fld { flex-direction:column; align-items:stretch; flex-wrap:nowrap; }
+        .kf label.fld input[type=text] { width:100%; min-width:0; }
+        .kf .fld .rowc { flex-wrap:nowrap; }
         @media (max-width: 520px) {
           .ovl { padding:0; align-items:flex-end; }
           .dlg, .dlg.wide { border-radius:16px 16px 0 0; max-height:92%; }
