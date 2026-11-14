@@ -260,6 +260,10 @@ class VordisBox:
             await self._call("media_player", "volume_set", {"entity_id": player, "volume_level": round(level, 2)}, quiet=True)
 
     async def _pause_if_playing(self) -> None:
+        # each card decides: some (e.g. a lullaby playlist) keep playing when lifted off
+        card = self.store.card_by_id(self.current["card_id"]) if self.current and self.current.get("card_id") else None
+        if card and card.get("keep_playing"):
+            return
         state = self.hass.states.get(self.player)
         if state is not None and state.state == STATE_PLAYING:
             await self._call("media_player", "media_pause", {"entity_id": self.player}, quiet=True)

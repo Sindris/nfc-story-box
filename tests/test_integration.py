@@ -202,6 +202,24 @@ async def test_pause_on_remove_switch(hass, reader, calls):
     assert len(calls["pause"]) == 1 and entry.runtime_data.box is box
 
 
+async def test_keep_playing_per_card(hass, reader, calls):
+    entry = await _setup(hass, reader)
+    store = entry.runtime_data.store
+    cards = [dict(c) for c in store.cards]
+    cards[0]["keep_playing"] = True  # Vordís Partí keeps playing; Lína langsokkur pauses
+    store.set_cards(cards)
+    assert store.card_for_tag("89-4A-71-E6")["keep_playing"] is True
+    assert store.card_for_tag("AA-BB")["keep_playing"] is False  # default
+
+    await _scan(hass, reader, "89-4A-71-E6")
+    await _lift(hass)
+    assert not calls["pause"]
+
+    await _scan(hass, reader, "AA-BB")
+    await _lift(hass)
+    assert len(calls["pause"]) == 1
+
+
 async def test_websocket(hass, reader, calls, hass_ws_client):
     entry = await _setup(hass, reader)
     ws = await hass_ws_client(hass)

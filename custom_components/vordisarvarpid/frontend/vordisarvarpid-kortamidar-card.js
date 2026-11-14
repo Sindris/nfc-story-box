@@ -1479,6 +1479,7 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
       if (seen[c.tag_id]) problems.push(`„${c.name}“ og „${seen[c.tag_id]}“ nota sama kort`);
       seen[c.tag_id] = c.name;
       if (typeof c.shuffle !== "boolean") c.shuffle = false;
+      if (typeof c.keep_playing !== "boolean") c.keep_playing = false;
     });
     if (problems.length) { this._msg = "Ekki vistað: " + problems.join(" · "); this._render(); return; }
     this._saving = true; this._render();
@@ -1675,6 +1676,7 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
           <button class="x" data-unser="${i}:${k}" title="Taka úr seríu">✕</button></div>` : "").join("")}
         ${series > 5 ? `<button class="link-b" data-seropen="${i}">${this._serOpen === i ? "Sýna færri" : `Sýna allar ${series + 1} bækurnar`}</button>` : ""}</div>` : ""}
       <label class="sw"><input type="checkbox" data-e="shuffle" data-i="${i}" ${c.shuffle ? "checked" : ""}> Stokka (handahófsröð)</label>
+      <label class="sw"><input type="checkbox" data-e="keep_playing" data-i="${i}" ${c.keep_playing ? "checked" : ""}> Halda áfram að spila þegar kortið er tekið af</label>
       <details class="adv"><summary>Ítarlegt</summary>
         <label>Miðill <input type="text" data-e="media_id" data-i="${i}" value="${esc(c.media_id || "")}" placeholder="library://album/2"></label>
         <label>Tegund <select data-e="media_type" data-i="${i}">

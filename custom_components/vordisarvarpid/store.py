@@ -18,7 +18,7 @@ from .const import DEFAULT_MAX_VOLUME, DOMAIN
 STORAGE_VERSION = 1
 SAVE_DELAY = 2
 
-CARD_FIELDS = ("id", "name", "tag_id", "media_id", "media_type", "more_media", "shuffle", "media")
+CARD_FIELDS = ("id", "name", "tag_id", "media_id", "media_type", "more_media", "shuffle", "keep_playing", "media")
 MAX_NAMES = 5000
 
 
@@ -40,6 +40,8 @@ def clean_card(raw: dict[str, Any]) -> dict[str, Any]:
         else:
             del card["more_media"]
     card["shuffle"] = bool(raw.get("shuffle", False))
+    # keep playing when this card is lifted off the box (default: pause)
+    card["keep_playing"] = bool(raw.get("keep_playing", False))
     return card
 
 
