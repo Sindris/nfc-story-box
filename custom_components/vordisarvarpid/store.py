@@ -58,6 +58,7 @@ class VordisStore:
             "settings": {},
             "names": {},
             "last_tag": None,
+            "last_player": None,
             "max_volume": DEFAULT_MAX_VOLUME,
         }
 

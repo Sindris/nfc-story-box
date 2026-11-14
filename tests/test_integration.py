@@ -108,6 +108,36 @@ async def test_same_card_resumes_when_paused(hass, reader, calls):
     assert len(calls["play"]) == 1 and len(calls["ma_play"]) == 1
 
 
+async def test_unavailable_speaker_does_not_count_as_last_card(hass, reader, calls):
+    """A scan while the speaker is unusable must not make the next scan 'resume' other media."""
+    entry = await _setup(hass, reader)
+    hass.states.async_set(PLAYER, "unavailable")
+    await _scan(hass, reader, "89-4A-71-E6")
+    assert not calls["ma_play"] and entry.runtime_data.store.data["last_tag"] is None
+    hass.states.async_set(PLAYER, "paused", {"volume_level": 0.5})  # something else is paused there
+    await _scan(hass, reader, "89-4A-71-E6")
+    assert not calls["play"] and calls["ma_play"][-1].data["media_id"] == "library://playlist/14"
+
+
+async def test_other_card_started_in_between_is_not_resumed(hass, reader, calls):
+    """Card A, then card B from the page/service, then card A on the box: play A fresh, don't resume B."""
+    entry = await _setup(hass, reader)
+    await _scan(hass, reader, "89-4A-71-E6")
+    await hass.services.async_call(DOMAIN, "play_card", {"card": "Lína langsokkur"}, blocking=True)
+    hass.states.async_set(PLAYER, "paused", {"volume_level": 0.5})
+    await _scan(hass, reader, "89-4A-71-E6")
+    assert not calls["play"] and calls["ma_play"][-1].data["media_id"] == "library://playlist/14"
+
+
+async def test_new_speaker_is_not_resumed(hass, reader, calls):
+    entry = await _setup(hass, reader)
+    await _scan(hass, reader, "AA-BB")
+    entry.runtime_data.store.data["last_player"] = "media_player.somewhere_else"
+    hass.states.async_set(PLAYER, "paused", {"volume_level": 0.5})
+    await _scan(hass, reader, "AA-BB")
+    assert not calls["play"] and len(calls["ma_play"]) == 2
+
+
 async def test_unknown_card_and_other_reader(hass, reader, calls):
     await _setup(hass, reader)
     await _scan(hass, reader, "NOPE")

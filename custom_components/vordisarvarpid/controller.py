@@ -179,16 +179,19 @@ class VordisBox:
             player = self.player
             tag = norm_tag(card.get("tag_id"))
             state = self.hass.states.get(player)
-            if state is None or state.state in (STATE_UNAVAILABLE, "off"):
+            if state is None or state.state == STATE_UNAVAILABLE:
+                # Nothing can play there; don't let this count as the "last card".
                 _LOGGER.warning(
                     "Speaker %s is %s; cards need a Music Assistant player (check the integration's settings)",
                     player, state.state if state else "missing",
                 )
+                return
             if (
                 from_scan
                 and self.conf.get(CONF_RESUME_SAME_CARD, True)
                 and tag
                 and self.store.data.get("last_tag") == tag
+                and self.store.data.get("last_player") == player
                 and state is not None
                 and state.state == STATE_PAUSED
             ):
@@ -226,9 +229,11 @@ class VordisBox:
                 else:
                     _LOGGER.warning("Card %s has nothing to play", card.get("name"))
                     return
-            if from_scan and tag:
-                self.store.data["last_tag"] = tag
-                self.store.schedule_save()
+            # Remember what was started where (by a scan, the card page or the service), so that
+            # "continue the same card" only resumes media this card really started on this speaker.
+            self.store.data["last_tag"] = tag or None
+            self.store.data["last_player"] = player
+            self.store.schedule_save()
             self.current = {
                 "card_id": card.get("id"), "name": card.get("name"), "tag_id": card.get("tag_id"),
                 "started": datetime.now().isoformat(timespec="seconds"),
