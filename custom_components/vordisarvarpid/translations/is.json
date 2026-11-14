@@ -1,0 +1,102 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Vordísarvarpið",
+        "description": "Fann sjálfvirkni sem notar „Tónaval – NFC spilari“ blueprint.",
+        "menu_options": {
+          "import_blueprint": "Flytja hana yfir: kort, hátalara og stillingar",
+          "manual": "Setja upp handvirkt"
+        }
+      },
+      "import_blueprint": {
+        "title": "Flytja úr blueprint",
+        "description": "Flytur {cards} kort og allar stillingar úr „{automation}“. Eftir það sér samþættingin um að spila kortin; slökktu á gömlu sjálfvirkninni svo þau spilist ekki tvisvar.",
+        "data": {
+          "disable_automation": "Slökkva á gömlu sjálfvirkninni"
+        }
+      },
+      "manual": {
+        "title": "Vordísarvarpið",
+        "data": {
+          "reader_device": "NFC lesari",
+          "player": "Hátalari (Music Assistant spilari)",
+          "button_event": "Takkar (event-eining)",
+          "card_present": "Kort á lesara (binary sensor)",
+          "start_volume": "Upphafsstyrkur (0 = breyta ekki)",
+          "volume_step": "Skref við hækkun/lækkun",
+          "pause_on_remove": "Pása þegar kort er tekið af",
+          "resume_same_card": "Halda áfram þar sem frá var horfið ef sama kort fer aftur á",
+          "sound_service": "Hljóð-aðgerð tækisins (t.d. esphome.nfc_reader_play_sound)"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Þetta tæki er þegar uppsett.",
+      "import_incomplete": "Sjálfvirknin hefur engan lesara eða hátalara valinn."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Vordísarvarpið",
+        "data": {
+          "player": "Hátalari (Music Assistant spilari)",
+          "button_event": "Takkar (event-eining)",
+          "card_present": "Kort á lesara (binary sensor)",
+          "start_volume": "Upphafsstyrkur (0 = breyta ekki)",
+          "volume_step": "Skref við hækkun/lækkun",
+          "pause_on_remove": "Pása þegar kort er tekið af",
+          "resume_same_card": "Halda áfram þar sem frá var horfið ef sama kort fer aftur á",
+          "sound_service": "Hljóð-aðgerð tækisins (t.d. esphome.nfc_reader_play_sound)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "current_card": {
+        "name": "Kort í spilun"
+      }
+    },
+    "number": {
+      "max_volume": {
+        "name": "Hámarksstyrkur"
+      }
+    }
+  },
+  "services": {
+    "play_card": {
+      "name": "Spila kort",
+      "description": "Spilar kort eins og það væri lagt á tækið.",
+      "fields": {
+        "card": {
+          "name": "Kort",
+          "description": "Heiti eða NFC-auðkenni kortsins."
+        },
+        "entry_id": {
+          "name": "Tæki",
+          "description": "Aðeins ef tækin eru fleiri en eitt."
+        }
+      }
+    },
+    "stop": {
+      "name": "Pása",
+      "description": "Setur hátalara tækisins á pásu.",
+      "fields": {
+        "entry_id": {
+          "name": "Tæki",
+          "description": "Aðeins ef tækin eru fleiri en eitt."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "not_set_up": {
+      "message": "Vordísarvarpið er ekki uppsett."
+    },
+    "no_card": {
+      "message": "Ekkert kort heitir „{card}“."
+    }
+  }
+}

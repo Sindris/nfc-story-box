@@ -1,0 +1,102 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Vordísarvarpið",
+        "description": "A 'Tónaval – NFC spilari' blueprint automation was found.",
+        "menu_options": {
+          "import_blueprint": "Move it over: cards, speaker and settings",
+          "manual": "Set up by hand"
+        }
+      },
+      "import_blueprint": {
+        "title": "Move from the blueprint",
+        "description": "Moves {cards} cards and all settings from „{automation}“. Afterwards the integration plays the cards; switch the old automation off so they don't play twice.",
+        "data": {
+          "disable_automation": "Switch the old automation off"
+        }
+      },
+      "manual": {
+        "title": "Vordísarvarpið",
+        "data": {
+          "reader_device": "NFC reader",
+          "player": "Speaker (Music Assistant player)",
+          "button_event": "Buttons (event entity)",
+          "card_present": "Card on reader (binary sensor)",
+          "start_volume": "Start volume (0 = don't change)",
+          "volume_step": "Volume step",
+          "pause_on_remove": "Pause when the card is lifted",
+          "resume_same_card": "Continue where it stopped when the same card goes back on",
+          "sound_service": "Sound action on the box (e.g. esphome.nfc_reader_play_sound)"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "This box is already set up.",
+      "import_incomplete": "The automation has no reader or speaker chosen."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Vordísarvarpið",
+        "data": {
+          "player": "Speaker (Music Assistant player)",
+          "button_event": "Buttons (event entity)",
+          "card_present": "Card on reader (binary sensor)",
+          "start_volume": "Start volume (0 = don't change)",
+          "volume_step": "Volume step",
+          "pause_on_remove": "Pause when the card is lifted",
+          "resume_same_card": "Continue where it stopped when the same card goes back on",
+          "sound_service": "Sound action on the box (e.g. esphome.nfc_reader_play_sound)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "current_card": {
+        "name": "Card playing"
+      }
+    },
+    "number": {
+      "max_volume": {
+        "name": "Max volume"
+      }
+    }
+  },
+  "services": {
+    "play_card": {
+      "name": "Play card",
+      "description": "Plays a card as if it were laid on the box.",
+      "fields": {
+        "card": {
+          "name": "Card",
+          "description": "Name or NFC tag id of the card."
+        },
+        "entry_id": {
+          "name": "Box",
+          "description": "Only needed with more than one box."
+        }
+      }
+    },
+    "stop": {
+      "name": "Pause",
+      "description": "Pauses the box's speaker.",
+      "fields": {
+        "entry_id": {
+          "name": "Box",
+          "description": "Only needed with more than one box."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "not_set_up": {
+      "message": "Vordísarvarpið is not set up."
+    },
+    "no_card": {
+      "message": "No card is called „{card}“."
+    }
+  }
+}
