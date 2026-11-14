@@ -63,6 +63,11 @@
       "max_volume": {
         "name": "Max volume"
       }
+    },
+    "switch": {
+      "pause_on_remove": {
+        "name": "Pause when the card is lifted"
+      }
     }
   },
   "services": {

@@ -174,6 +174,34 @@ async def test_lifting_card_pauses(hass, reader, calls):
     assert len(calls["pause"]) == 1
 
 
+async def _lift(hass):
+    hass.states.async_set("binary_sensor.vordis_card", "on")
+    await hass.async_block_till_done()
+    hass.states.async_set(PLAYER, "playing", {"volume_level": 0.5})
+    hass.states.async_set("binary_sensor.vordis_card", "off")
+    await hass.async_block_till_done()
+
+
+async def test_pause_on_remove_switch(hass, reader, calls):
+    entry = await _setup(hass, reader)
+    sw = "switch.vordisarvarpid_pause_when_the_card_is_lifted"
+    assert hass.states.get(sw).state == "on"  # on by default
+    box = entry.runtime_data.box
+
+    await hass.services.async_call("switch", "turn_off", {"entity_id": sw}, blocking=True)
+    await hass.async_block_till_done()
+    assert hass.states.get(sw).state == "off"
+    assert entry.options["pause_on_remove"] is False
+    assert entry.runtime_data.box is box  # flipped live, no reload
+    await _lift(hass)
+    assert not calls["pause"]  # keeps playing
+
+    await hass.services.async_call("switch", "turn_on", {"entity_id": sw}, blocking=True)
+    await hass.async_block_till_done()
+    await _lift(hass)
+    assert len(calls["pause"]) == 1 and entry.runtime_data.box is box
+
+
 async def test_websocket(hass, reader, calls, hass_ws_client):
     entry = await _setup(hass, reader)
     ws = await hass_ws_client(hass)

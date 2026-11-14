@@ -63,6 +63,11 @@
       "max_volume": {
         "name": "Hámarksstyrkur"
       }
+    },
+    "switch": {
+      "pause_on_remove": {
+        "name": "Gera hlé þegar kort er tekið af"
+      }
     }
   },
   "services": {

@@ -63,6 +63,7 @@ class VordisBox:
         self._lock = asyncio.Lock()
         self.current: dict[str, Any] | None = None
         self.last_scan: dict[str, Any] | None = None
+        self.applied_options: dict[str, Any] = {}  # options the running box was set up with
 
     # ---- configuration
     @property

@@ -15,17 +15,28 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.typing import ConfigType
 
 from .config_flow import automation_entity
-from .const import CARD_FILE, DOMAIN, FRONTEND_URL
+from .const import (
+    CARD_FILE,
+    CONF_PAUSE_ON_REMOVE,
+    CONF_RESUME_SAME_CARD,
+    DOMAIN,
+    FRONTEND_URL,
+    SIGNAL_UPDATED,
+)
 from .controller import VordisBox
 from .data import VordisConfigEntry, VordisData, get_entry
 from .store import VordisStore, norm_tag
 from .websocket import async_register_websocket
 
 _LOGGER = logging.getLogger(__name__)
-PLATFORMS = [Platform.NUMBER, Platform.SENSOR]
+PLATFORMS = [Platform.NUMBER, Platform.SENSOR, Platform.SWITCH]
+
+# Options the box reads live; changing only these needs no reload.
+LIVE_OPTIONS = {CONF_PAUSE_ON_REMOVE, CONF_RESUME_SAME_CARD}
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
@@ -90,12 +101,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: VordisConfigEntry) -> bo
     entry.runtime_data = VordisData(store, box)
     box.async_start()
     entry.async_on_unload(box.async_stop)
+    box.applied_options = dict(entry.options)
     entry.async_on_unload(entry.add_update_listener(_options_updated))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
 
 async def _options_updated(hass: HomeAssistant, entry: VordisConfigEntry) -> None:
+    box = entry.runtime_data.box
+    old, new = box.applied_options, dict(entry.options)
+    changed = {k for k in old.keys() | new.keys() if old.get(k) != new.get(k)}
+    if changed and changed <= LIVE_OPTIONS:
+        box.applied_options = new
+        async_dispatcher_send(hass, SIGNAL_UPDATED.format(entry.entry_id))
+        return
     await hass.config_entries.async_reload(entry.entry_id)
 
 
