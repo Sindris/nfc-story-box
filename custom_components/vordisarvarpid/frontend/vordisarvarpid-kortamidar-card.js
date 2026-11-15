@@ -678,6 +678,10 @@ function download(blob, name) {
 class VordisarvarpidKortamidarCard extends HTMLElement {
   setConfig(config) {
     this._config = { brand: "Vordísarvarpið", style: "big", ...config };
+    // Some phone apps don't tell the page how tall the navigation bar is: `safe_bottom: 48` keeps the buttons clear of it
+    if (+this._config.safe_bottom > 0) {
+      this.style.setProperty("--vk-safe-b", `max(env(safe-area-inset-bottom, 0px), var(--safe-area-inset-bottom, 0px), ${+this._config.safe_bottom}px)`);
+    }
     this._opts = { style: this._config.style, color: "cover", brand: false, dots: true, back: false, start: 1,
       sheet: this._config.sheet || "herma5028", cal: {} };
     this._history = {}; this._positions = {}; this._live = {}; this._wiz = null; this._labels = {};
@@ -2138,7 +2142,7 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
     this._syncItems();
     root.innerHTML = `
       <style>
-        :host { --vk-r: 12px; }
+        :host { --vk-r: 12px; --vk-safe-b: max(env(safe-area-inset-bottom, 0px), var(--safe-area-inset-bottom, 0px)); }
         ha-card { padding:16px; }
         .head { display:flex; align-items:center; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
         .head h2 { margin:0; font-size:20px; flex:1; min-width:120px; }
@@ -2360,7 +2364,7 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
         .ptabs button.on { color:var(--primary-color); box-shadow:inset 0 -3px 0 var(--primary-color); }
         .pbody { padding:12px 16px; }
         .dlg.wide > .notice { margin:0 16px 10px; }
-        .dlg-f { position:sticky; bottom:0; display:flex; gap:8px; align-items:center; padding:10px 16px; border-top:1px solid var(--divider-color);
+        .dlg-f { position:sticky; bottom:0; display:flex; gap:8px; align-items:center; padding:10px 16px calc(10px + var(--vk-safe-b)); border-top:1px solid var(--divider-color);
                  background:var(--card-background-color, #fff); border-radius:0 0 20px 20px; }
         .kf .fld select { flex:1; min-width:160px; }
         .kf label.fld { flex-direction:column; align-items:stretch; flex-wrap:nowrap; }
@@ -2368,8 +2372,11 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
         .kf .fld .rowc { flex-wrap:nowrap; }
         @media (max-width: 520px) {
           .ovl { padding:0; align-items:flex-end; }
-          .dlg, .dlg.wide { border-radius:16px 16px 0 0; max-height:92%; }
-          .dlg.wide { height:92%; }  /* fixed height: messages don't move the buttons */
+          .dlg, .dlg.wide { border-radius:16px 16px 0 0; max-height:92%; max-height:92dvh; }
+          .dlg.wide { height:92%; height:92dvh; }  /* fixed height: messages don't move the buttons */
+          .dlg { padding-bottom:calc(16px + var(--vk-safe-b)); }
+          .dlg.wide { padding-bottom:0; }
+          .dlg.wiz .dlg-f { padding-bottom:var(--vk-safe-b); }
           .dlg.wide .pbody { flex:1 1 auto; }
           .dlg.wiz { max-height:none; }
           .dlg-f { border-radius:0; }

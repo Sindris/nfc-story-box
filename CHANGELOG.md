@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.1
+
+Fixed
+- On phones the card dialog's buttons (Save changes, Done) no longer end up under the navigation bar.
+  The page uses the phone's reported bottom inset; if an app doesn't report it, set `safe_bottom: 48`
+  (pixels) in the card's config.
+
 ## 1.2.0
 
 New
