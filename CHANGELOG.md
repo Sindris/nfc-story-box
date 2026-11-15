@@ -1,0 +1,27 @@
+# Changelog
+
+## 1.1.0
+
+New
+- Stories remember their place per card; a series can play the next book each time.
+- Per card: own speaker, own start volume.
+- Control cards: stop, sleep timer, change speaker, surprise.
+- Quiet hours (lower maximum volume, optionally stories only), daily listening limit, sleep timer.
+- "Listened today" sensor, play counts and history per card.
+- Card page: link all NFC cards one after another; status line; control cards group.
+- Diagnostics download and repair notices (speaker unavailable, Music Assistant missing).
+- Actions `vordisarvarpid.sleep_timer` and `vordisarvarpid.set_speaker`.
+
+Changed
+- The same card put back while it is still playing no longer restarts it.
+- Lifting a card only pauses what the box itself started.
+- The maximum volume is held while the box plays, not only for the box's buttons.
+- The "bye" sound is only played when the music really pauses (needs the firmware in `esphome/`).
+- The PDF library and fonts ship with the integration; nothing is fetched from the internet.
+- The card page is only downloaded on dashboards that show it.
+- Changing labels and print settings, and playing unsaved cards, needs an administrator.
+- The card dialog no longer jumps when a message appears.
+
+## 1.0.0
+
+First version as an integration (moved from the "Tónaval – NFC spilari" blueprint).

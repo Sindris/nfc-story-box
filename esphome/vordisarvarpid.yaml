@@ -1,0 +1,461 @@
+# Vordísarvarpið (formerly Tónaval) – NFC music and story player for a child.
+# The device name stays "nfc-reader" so Home Assistant entity IDs and the
+# esphome.nfc_reader_* actions keep working.
+#
+# Sounds: every feedback sound is looked up by name ("scan", "next", ...) in the
+# table inside the play_key script, in the theme chosen with the "Sound Theme"
+# dropdown in Home Assistant. Rising notes = go / yes / forward, falling notes =
+# stop / back / goodbye. Edit the table to change a sound.
+
+substitutions:
+  # Jingles: used for the startup tune and playable from Home Assistant.
+  jingle_chime: "chime:d=8,o=6,b=180:e,g,4c7"
+  jingle_fanfare: "fanfare:d=16,o=6,b=160:c,c,c,8e,8g,4c7"
+  jingle_wakeup: "wake:d=16,o=6,b=200:c,d,e,f,g,a,b,4c7"
+
+esphome:
+  name: nfc-reader
+  friendly_name: Vordísarvarpið
+  on_boot:
+    # Low priority = runs last, after the saved settings have been restored.
+    priority: -100
+    then:
+      - binary_sensor.template.publish:
+          id: card_present
+          state: false
+      - lambda: |-
+          float v = id(beep_volume).state;
+          if (isnan(v)) v = 100.0f;
+          v = v / 100.0f;
+          id(my_rtttl).set_gain(0.5f * v * v);
+      # Startup tune, chosen with the "Startup Tune" dropdown (Off = silent start).
+      - if:
+          condition:
+            lambda: 'return id(startup_tune).active_index().value_or(0) != 0;'
+          then:
+            - script.execute:
+                id: play_tune
+                tune: !lambda |-
+                  switch (id(startup_tune).active_index().value_or(0)) {
+                    case 2: return std::string("${jingle_fanfare}");
+                    case 3: return std::string("${jingle_wakeup}");
+                    default: return std::string("${jingle_chime}");
+                  }
+
+esp8266:
+  board: d1_mini
+
+logger:
+
+api:
+  actions:
+    # Home Assistant: esphome.nfc_reader_play_sound
+    #   sound: scan | success | unknown | removed | play_pause | next | previous |
+    #          volume_up | volume_down | offline     (in the current theme)
+    #          chime | fanfare | wakeup               (jingles)
+    - action: play_sound
+      variables:
+        sound: string
+      then:
+        - if:
+            condition:
+              lambda: 'return sound == "chime" || sound == "fanfare" || sound == "wakeup";'
+            then:
+              - script.execute:
+                  id: play_tune
+                  tune: !lambda |-
+                    if (sound == "fanfare") return std::string("${jingle_fanfare}");
+                    if (sound == "wakeup") return std::string("${jingle_wakeup}");
+                    return std::string("${jingle_chime}");
+            else:
+              - script.execute:
+                  id: play_key
+                  key: !lambda 'return std::string(sound.c_str());'
+    # Home Assistant: esphome.nfc_reader_play_rtttl  (tune: any RTTTL string, for trying out sounds)
+    - action: play_rtttl
+      variables:
+        tune: string
+      then:
+        - script.execute:
+            id: play_tune
+            tune: !lambda 'return std::string(tune.c_str());'
+
+ota:
+  - platform: esphome
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  ap:
+    ssid: "Vordisarvarpid Fallback"
+
+captive_portal:
+
+i2c:
+  sda: GPIO4
+  scl: GPIO5
+  scan: true
+
+output:
+  - platform: esp8266_pwm
+    pin: GPIO14
+    id: buzzer_pin
+
+rtttl:
+  output: buzzer_pin
+  id: my_rtttl
+  # Gain is the PWM duty cycle. 0.5 (a symmetric square wave) is the loudest
+  # a passive buzzer gets. 1.0 means "always on" = no tone = silence.
+  # The "Beep Volume" slider overrides this at boot and whenever it is moved.
+  gain: 0.5
+
+number:
+  # Beep volume, 0–100 %. Shown in Home Assistant; remembered across restarts.
+  # Mapped to a duty cycle of 0–0.5 on a squared curve so the slider feels even.
+  - platform: template
+    name: "Beep Volume"
+    id: beep_volume
+    icon: "mdi:volume-medium"
+    entity_category: config
+    unit_of_measurement: "%"
+    min_value: 0
+    max_value: 100
+    step: 5
+    initial_value: 100
+    optimistic: true
+    restore_value: true
+    set_action:
+      - lambda: |-
+          float v = x / 100.0f;
+          id(my_rtttl).set_gain(0.5f * v * v);
+      - script.execute:
+          id: play_key
+          key: "play_pause"
+
+select:
+  # Which set of feedback sounds to use. The order must match the table in play_key.
+  - platform: template
+    name: "Sound Theme"
+    id: sound_theme
+    icon: "mdi:music-box-multiple"
+    entity_category: config
+    options:
+      - "Soft"
+      - "Bright"
+      - "Deep"
+    initial_option: "Soft"
+    optimistic: true
+    restore_value: true
+    on_value:
+      then:
+        - if:
+            condition:
+              lambda: return millis() > 15000;
+            then:
+              - script.execute:
+                  id: play_key
+                  key: success
+
+  # Tune played when the device starts. The order must match on_boot above.
+  - platform: template
+    name: "Startup Tune"
+    id: startup_tune
+    icon: "mdi:music-note"
+    entity_category: config
+    options:
+      - "Off"
+      - "Chime"
+      - "Fanfare"
+      - "Wake-up"
+    initial_option: "Chime"
+    optimistic: true
+    restore_value: true
+
+script:
+  # All sounds go through here so the "Sounds" switch can mute the device.
+  - id: play_tune
+    mode: restart
+    parameters:
+      tune: string
+    then:
+      - if:
+          condition:
+            switch.is_on: sounds_enabled
+          then:
+            - rtttl.stop
+            - rtttl.play:
+                rtttl: !lambda 'return tune;'
+
+  # Plays a named feedback sound in the current theme.
+  - id: play_key
+    mode: restart
+    parameters:
+      key: string
+    then:
+      - script.execute:
+          id: play_tune
+          tune: !lambda |-
+            static const char *const KEYS[10] = {
+              "scan", "success", "unknown", "removed", "play_pause",
+              "next", "previous", "volume_up", "volume_down", "offline"};
+            static const char *const TUNES[3][10] = {
+              // Soft: mid pitch, gentle
+              {"scan:d=32,o=6,b=200:c",        // card read (tick)
+               "ok:d=16,o=6,b=200:c,e,g,8c7",  // card recognised, music starts
+               "huh:d=8,o=5,b=200:g,e",        // card not recognised (gentle uh-oh)
+               "bye:d=16,o=6,b=200:g,e,8c",    // card lifted off
+               "pp:d=16,o=6,b=200:e",          // play/pause
+               "next:d=16,o=6,b=200:e,g",      // next (step up)
+               "prev:d=16,o=6,b=200:g,e",      // previous (step down)
+               "vup:d=32,o=6,b=200:a",         // volume up (high tick)
+               "vdn:d=32,o=6,b=200:d",         // volume down (low tick)
+               "offline:d=8,o=5,b=200:g,e,c"}, // Home Assistant not reachable
+              // Bright: one octave higher, cuts through more on a small buzzer
+              {"scan:d=32,o=7,b=200:c",
+               "ok:d=16,o=7,b=200:g6,c,e,8g",
+               "huh:d=8,o=6,b=200:g,e",
+               "bye:d=16,o=7,b=200:g,e,8c",
+               "pp:d=16,o=7,b=200:e",
+               "next:d=16,o=7,b=200:e,g",
+               "prev:d=16,o=7,b=200:g,e",
+               "vup:d=32,o=7,b=200:a",
+               "vdn:d=32,o=7,b=200:d",
+               "offline:d=8,o=6,b=200:g,e,c"},
+              // Deep: one octave lower, mellow
+              {"scan:d=32,o=5,b=200:c",
+               "ok:d=16,o=5,b=200:c,e,g,8c6",
+               "huh:d=8,o=4,b=200:g,e",
+               "bye:d=16,o=5,b=200:g,e,8c",
+               "pp:d=16,o=5,b=200:e",
+               "next:d=16,o=5,b=200:e,g",
+               "prev:d=16,o=5,b=200:g,e",
+               "vup:d=32,o=5,b=200:a",
+               "vdn:d=32,o=5,b=200:d",
+               "offline:d=8,o=4,b=200:g,e,c"}};
+            size_t theme = id(sound_theme).active_index().value_or(0);
+            if (theme > 2) theme = 0;
+            for (int i = 0; i < 10; i++) {
+              if (key == KEYS[i]) return std::string(TUNES[theme][i]);
+            }
+            return std::string(TUNES[theme][0]);
+
+  # Feedback for buttons and card scans: the normal sound when Home Assistant
+  # is connected, the "offline" sound when it is not (so a press never just does nothing).
+  - id: play_feedback
+    mode: restart
+    parameters:
+      key: string
+    then:
+      - if:
+          condition:
+            api.connected:
+              state_subscription_only: true
+          then:
+            - script.execute:
+                id: play_key
+                key: !lambda 'return key;'
+          else:
+            - script.execute:
+                id: play_key
+                key: "offline"
+
+  # A card only counts as removed after 1.5 s, so a single missed read
+  # does not pause the music or restart the playlist.
+  - id: card_removed_timer
+    mode: restart
+    then:
+      - delay: 1500ms
+      - binary_sensor.template.publish:
+          id: card_present
+          state: false
+      - text_sensor.template.publish:
+          id: last_scanned_tag
+          state: ""
+      # The "bye" sound is played by Home Assistant, and only when the music really pauses
+      # (some cards keep playing when lifted). Without Home Assistant the box says so itself.
+      - if:
+          condition:
+            not:
+              api.connected:
+                state_subscription_only: true
+          then:
+            - script.execute:
+                id: play_key
+                key: "removed"
+
+switch:
+  - platform: template
+    name: "Sounds"
+    id: sounds_enabled
+    icon: "mdi:volume-high"
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    entity_category: config
+
+button:
+  - platform: template
+    name: "Test Beep"
+    icon: "mdi:bell-ring"
+    on_press:
+      then:
+        - script.execute:
+            id: play_key
+            key: "success"
+
+event:
+  - platform: template
+    name: "Button"
+    id: button_event
+    device_class: button
+    event_types:
+      - play_pause
+      - next
+      - previous
+      - volume_up
+      - volume_down
+
+pn532_i2c:
+  id: my_nfc_reader
+  update_interval: 500ms
+  on_tag:
+    then:
+      - if:
+          condition:
+            and:
+              - script.is_running: card_removed_timer
+              - lambda: 'return id(last_scanned_tag).state == x;'
+          then:
+            # Same card seen again right after a missed read: carry on as if nothing happened.
+            - script.stop: card_removed_timer
+          else:
+            - script.stop: card_removed_timer
+            - homeassistant.tag_scanned: !lambda 'return x;'
+            - text_sensor.template.publish:
+                id: last_scanned_tag
+                state: !lambda 'return x;'
+            - binary_sensor.template.publish:
+                id: card_present
+                state: true
+            - script.execute:
+                id: play_feedback
+                key: "scan"
+  on_tag_removed:
+    then:
+      - script.execute: card_removed_timer
+
+text_sensor:
+  - platform: template
+    name: "Scanned NFC Tag"
+    id: last_scanned_tag
+    icon: "mdi:nfc-variant"
+
+binary_sensor:
+  - platform: status
+    name: "Status"
+
+  - platform: template
+    name: "Card Present"
+    id: card_present
+    icon: "mdi:card-account-details-outline"
+
+  # Note: GPIO2 and GPIO0 are boot pins. Holding these buttons while the
+  # device powers up stops it from booting. GPIO13 is free if one is rewired.
+  - platform: gpio
+    pin:
+      number: GPIO2
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    name: "Play/Pause Button"
+    id: btn_play_pause
+    filters:
+      - delayed_on: 30ms
+      - delayed_off: 30ms
+    on_press:
+      then:
+        - event.trigger:
+            id: button_event
+            event_type: play_pause
+        - script.execute:
+            id: play_feedback
+            key: "play_pause"
+
+  # Short press = next track, hold = volume up (repeats while held)
+  - platform: gpio
+    pin:
+      number: GPIO0
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    name: "Next Button"
+    id: btn_next
+    filters:
+      - delayed_on: 30ms
+      - delayed_off: 30ms
+    on_click:
+      min_length: 10ms
+      max_length: 500ms
+      then:
+        - event.trigger:
+            id: button_event
+            event_type: next
+        - script.execute:
+            id: play_feedback
+            key: "next"
+    on_multi_click:
+      - timing:
+          - ON for at least 501ms
+        then:
+          - while:
+              condition:
+                binary_sensor.is_on: btn_next
+              then:
+                - event.trigger:
+                    id: button_event
+                    event_type: volume_up
+                - script.execute:
+                    id: play_feedback
+                    key: "volume_up"
+                - delay: 400ms
+
+  # Short press = previous track, hold = volume down (repeats while held)
+  - platform: gpio
+    pin:
+      number: GPIO12
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    name: "Previous Button"
+    id: btn_previous
+    filters:
+      - delayed_on: 30ms
+      - delayed_off: 30ms
+    on_click:
+      min_length: 10ms
+      max_length: 500ms
+      then:
+        - event.trigger:
+            id: button_event
+            event_type: previous
+        - script.execute:
+            id: play_feedback
+            key: "previous"
+    on_multi_click:
+      - timing:
+          - ON for at least 501ms
+        then:
+          - while:
+              condition:
+                binary_sensor.is_on: btn_previous
+              then:
+                - event.trigger:
+                    id: button_event
+                    event_type: volume_down
+                - script.execute:
+                    id: play_feedback
+                    key: "volume_down"
+                - delay: 400ms
