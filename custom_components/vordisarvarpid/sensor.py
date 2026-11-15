@@ -1,10 +1,11 @@
-"""The card that is playing (or was played last)."""
+"""The card that is playing (or was played last), and how long the box has played today."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
+from homeassistant.const import UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
@@ -13,7 +14,7 @@ from .entity import VordisEntity
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: VordisConfigEntry, add: AddConfigEntryEntitiesCallback) -> None:
-    add([CurrentCardSensor(entry)])
+    add([CurrentCardSensor(entry), ListenedTodaySensor(entry)])
 
 
 class CurrentCardSensor(VordisEntity, SensorEntity):
@@ -33,7 +34,32 @@ class CurrentCardSensor(VordisEntity, SensorEntity):
             "card_id": cur.get("card_id"),
             "tag_id": cur.get("tag_id"),
             "started": cur.get("started"),
+            "speaker": self.box.player,
             "last_scanned_tag": scan.get("tag_id"),
             "last_scan_known": scan.get("known"),
+            "last_scan_blocked": scan.get("blocked"),
+            "sleep_timer_until": self.box.sleep_until.isoformat(timespec="seconds") if self.box.sleep_until else None,
+            "quiet_hours": self.box.quiet,
             "cards": len(self.box.store.cards),
         }
+
+
+class ListenedTodaySensor(VordisEntity, SensorEntity):
+    """Minutes played today; updated when playback starts or stops and every half minute while playing."""
+
+    _attr_icon = "mdi:timer-music-outline"
+    _attr_device_class = SensorDeviceClass.DURATION
+    _attr_native_unit_of_measurement = UnitOfTime.MINUTES
+    _attr_state_class = SensorStateClass.TOTAL_INCREASING
+
+    def __init__(self, entry: VordisConfigEntry) -> None:
+        super().__init__(entry, "listened_today")
+
+    @property
+    def native_value(self) -> int:
+        return self.box.listened_today // 60
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        limit = self.box.daily_limit // 60
+        return {"limit": limit or None, "limit_reached": self.box.limit_reached}

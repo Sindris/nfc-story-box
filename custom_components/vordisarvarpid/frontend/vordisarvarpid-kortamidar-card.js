@@ -54,8 +54,17 @@ const ICONS = {  // 24 x 24 paths
   series: "M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2zm-4 4H9v-2h6v2zm4-8H9V5h10v2z",
 };
 
-const JSPDF_URL = "https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js";
-const FONT_CSS = "https://fonts.googleapis.com/css2?family=Baloo+2:wght@800&family=Inter:wght@600&display=swap";
+// The PDF library and the fonts ship with the integration, so printing works without the internet.
+const BASE = window.__VORDIS_BASE || "/vordisarvarpid_static/";
+const JSPDF_URL = BASE + "vendor/jspdf.umd.min.js";
+const LATIN = "U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD";
+const LATIN_EXT = "U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF";
+const FONTS = [
+  ["Baloo 2", "800", "baloo-2-latin-800-normal.woff2", LATIN],
+  ["Baloo 2", "800", "baloo-2-latin-ext-800-normal.woff2", LATIN_EXT],
+  ["Inter", "600", "inter-latin-600-normal.woff2", LATIN],
+  ["Inter", "600", "inter-latin-ext-600-normal.woff2", LATIN_EXT],
+];
 const PRINT_PX = 300 / 25.4;   // 300 dpi
 const PREVIEW_PX = 140 / 25.4;
 const OPTS_KEY = "vordis-kortamidar-opts";
@@ -71,7 +80,7 @@ function loadJsPdf() {
     const sc = document.createElement("script");
     sc.src = window.__VORDIS_JSPDF_URL || JSPDF_URL;
     sc.onload = () => (window.jspdf ? res(window.jspdf) : rej(new Error("jsPDF hlóðst ekki")));
-    sc.onerror = () => rej(new Error("náði ekki í jsPDF (þarf netsamband)"));
+    sc.onerror = () => rej(new Error("náði ekki í PDF-safnið"));
     document.head.appendChild(sc);
   });
 }
@@ -79,8 +88,8 @@ function loadJsPdf() {
 let fontsReady = null;
 function ensureFonts() {
   if (fontsReady) return fontsReady;
-  if (!document.querySelector(`link[href="${FONT_CSS}"]`)) {
-    const l = document.createElement("link"); l.rel = "stylesheet"; l.href = FONT_CSS; document.head.appendChild(l);
+  for (const [family, weight, file, unicodeRange] of FONTS) {
+    try { document.fonts.add(new FontFace(family, `url(${BASE}fonts/${file}) format("woff2")`, { weight, unicodeRange })); } catch (e) { /* falls back to the system font */ }
   }
   fontsReady = Promise.race([
     Promise.all([document.fonts.load('800 40px "Baloo 2"', "Þð"), document.fonts.load('600 20px "Inter"', "Þð")]).catch(() => 0),
@@ -2201,12 +2210,17 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
   }
 }
 
-if (!customElements.get("vordisarvarpid-kortamidar-card")) {
-  customElements.define("vordisarvarpid-kortamidar-card", VordisarvarpidKortamidarCard);
-  window.customCards = window.customCards || [];
-  window.customCards.push({
-    type: "vordisarvarpid-kortamidar-card",
-    name: "Vordísarvarpið",
-    description: "Kortin á Vordísarvarpinu: hvað þau spila og prentanlegir miðar með forsíðumyndum.",
-  });
+// Loaded through vordisarvarpid-loader.js the page is the inner element of the card;
+// loaded on its own (as a dashboard resource, or in tests) it is the card itself.
+const TAG = "vordisarvarpid-kortamidar-card" + (window.__VORDIS_LOADER ? "-impl" : "");
+if (!customElements.get(TAG)) {
+  customElements.define(TAG, VordisarvarpidKortamidarCard);
+  if (!window.__VORDIS_LOADER) {
+    window.customCards = window.customCards || [];
+    window.customCards.push({
+      type: TAG,
+      name: "Vordísarvarpið",
+      description: "Kortin á Vordísarvarpinu: hvað þau spila og prentanlegir miðar með forsíðumyndum.",
+    });
+  }
 }

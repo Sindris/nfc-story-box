@@ -21,10 +21,16 @@ from homeassistant.helpers.typing import ConfigType
 from .config_flow import automation_entity
 from .const import (
     CARD_FILE,
+    CONF_DAILY_LIMIT,
     CONF_PAUSE_ON_REMOVE,
+    CONF_QUIET_END,
+    CONF_QUIET_MAX_VOLUME,
+    CONF_QUIET_START,
+    CONF_QUIET_STORIES_ONLY,
     CONF_RESUME_SAME_CARD,
     DOMAIN,
     FRONTEND_URL,
+    LOADER_FILE,
     SIGNAL_UPDATED,
 )
 from .controller import VordisBox
@@ -36,19 +42,25 @@ _LOGGER = logging.getLogger(__name__)
 PLATFORMS = [Platform.NUMBER, Platform.SENSOR, Platform.SWITCH]
 
 # Options the box reads live; changing only these needs no reload.
-LIVE_OPTIONS = {CONF_PAUSE_ON_REMOVE, CONF_RESUME_SAME_CARD}
+LIVE_OPTIONS = {
+    CONF_PAUSE_ON_REMOVE, CONF_RESUME_SAME_CARD, CONF_QUIET_START, CONF_QUIET_END,
+    CONF_QUIET_MAX_VOLUME, CONF_QUIET_STORIES_ONLY, CONF_DAILY_LIMIT,
+}
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Serve the card page, register the websocket API and the actions."""
     card = Path(__file__).parent / "frontend" / CARD_FILE
-    digest = await hass.async_add_executor_job(lambda: hashlib.sha256(card.read_bytes()).hexdigest()[:8])
+    digest = await hass.async_add_executor_job(
+        lambda: hashlib.sha256(b"".join(f.read_bytes() for f in sorted(card.parent.glob("*.js")))).hexdigest()[:8]
+    )
     await hass.http.async_register_static_paths(
         [StaticPathConfig(FRONTEND_URL, str(card.parent), cache_headers=False)]
     )
-    # loaded on every dashboard, so "custom:vordisarvarpid-kortamidar-card" works without a resource entry
-    add_extra_js_url(hass, f"{FRONTEND_URL}/{CARD_FILE}?v={digest}")
+    # A tiny loader goes on every dashboard, so "custom:vordisarvarpid-kortamidar-card" works without a
+    # resource entry; the card page itself is only fetched where the card is shown.
+    add_extra_js_url(hass, f"{FRONTEND_URL}/{LOADER_FILE}?v={digest}")
     async_register_websocket(hass)
 
     async def play_card(call: ServiceCall) -> None:
@@ -63,7 +75,10 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
                 translation_domain=DOMAIN, translation_key="no_card",
                 translation_placeholders={"card": want},
             )
-        await box.async_play_card(card)
+        if card.get("action"):
+            await box.async_run_action(card)
+        else:
+            await box.async_play_card(card)
 
     async def stop(call: ServiceCall) -> None:
         await get_entry(hass, call.data.get("entry_id")).runtime_data.box.async_stop_playback()
@@ -73,6 +88,24 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         schema=vol.Schema({vol.Required("card"): cv.string, vol.Optional("entry_id"): cv.string}),
     )
     hass.services.async_register(DOMAIN, "stop", stop, schema=vol.Schema({vol.Optional("entry_id"): cv.string}))
+
+    async def sleep_timer(call: ServiceCall) -> None:
+        await get_entry(hass, call.data.get("entry_id")).runtime_data.box.async_sleep_timer(call.data["minutes"])
+
+    async def set_speaker(call: ServiceCall) -> None:
+        await get_entry(hass, call.data.get("entry_id")).runtime_data.box.async_set_speaker(call.data.get("player"))
+
+    hass.services.async_register(
+        DOMAIN, "sleep_timer", sleep_timer,
+        schema=vol.Schema({
+            vol.Required("minutes"): vol.All(vol.Coerce(int), vol.Range(min=0, max=240)),
+            vol.Optional("entry_id"): cv.string,
+        }),
+    )
+    hass.services.async_register(
+        DOMAIN, "set_speaker", set_speaker,
+        schema=vol.Schema({vol.Optional("player"): cv.entity_id, vol.Optional("entry_id"): cv.string}),
+    )
     return True
 
 

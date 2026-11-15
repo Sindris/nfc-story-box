@@ -34,8 +34,22 @@ def _state(hass: HomeAssistant, entry_id: str | None) -> dict[str, Any]:
         "settings": data["settings"],
         "names": data["names"],
         "max_volume": data["max_volume"],
+        "history": data["history"],
+        "positions": data["positions"],
+        **_live(box),
+    }
+
+
+def _live(box: Any) -> dict[str, Any]:
+    """What changes while the page is open."""
+    return {
         "current": box.current,
         "last_scan": box.last_scan,
+        "speaker": box.player,
+        "sleep_until": box.sleep_until.isoformat(timespec="seconds") if box.sleep_until else None,
+        "listened_today": box.listened_today,
+        "daily_limit": box.daily_limit,
+        "quiet": box.quiet,
     }
 
 
@@ -86,9 +100,15 @@ def ws_save_cards(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
 )
 @callback
 def ws_update(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
-    """Label settings, print settings and remembered book names; anyone who can open the page may change these."""
+    """Label settings, print settings and remembered book names.
+
+    Anyone who can open the page may add remembered names (a cache); the rest needs an administrator.
+    """
     entry = _guard(connection, msg, lambda: get_entry(hass, msg.get("entry_id")))
     if entry is None:
+        return
+    if ("labels" in msg or "settings" in msg) and not connection.user.is_admin:
+        connection.send_error(msg["id"], "unauthorized", "Only administrators can change labels and print settings")
         return
     store = entry.runtime_data.store
     if "labels" in msg:
@@ -106,10 +126,19 @@ def ws_update(hass: HomeAssistant, connection: websocket_api.ActiveConnection, m
 )
 @websocket_api.async_response
 async def ws_play(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
-    """Test-play a card (also one that is not saved yet) on the box's speaker."""
+    """Play a card on the box's speaker. Administrators may also try out a card that is not saved yet."""
     try:
         entry = get_entry(hass, msg.get("entry_id"))
-        await entry.runtime_data.box.async_play_card(msg["card"])
+        box, card = entry.runtime_data.box, msg["card"]
+        if not connection.user.is_admin:
+            card = entry.runtime_data.store.card_by_id(str(card.get("id") or ""))
+            if card is None:
+                connection.send_error(msg["id"], "unauthorized", "Only administrators can play unsaved cards")
+                return
+        if card.get("action"):
+            await box.async_run_action(card)
+        else:
+            await box.async_play_card(card)
     except Exception as err:  # noqa: BLE001
         connection.send_error(msg["id"], "vordisarvarpid_error", str(err))
         return
@@ -139,7 +168,7 @@ def ws_subscribe(hass: HomeAssistant, connection: websocket_api.ActiveConnection
     @callback
     def forward() -> None:
         connection.send_message(
-            websocket_api.event_message(msg["id"], {"current": box.current, "last_scan": box.last_scan})
+            websocket_api.event_message(msg["id"], _live(box))
         )
 
     connection.subscriptions[msg["id"]] = async_dispatcher_connect(hass, SIGNAL_UPDATED.format(entry.entry_id), forward)

@@ -49,6 +49,7 @@ def calls(hass: HomeAssistant):
         "playpause": async_mock_service(hass, "media_player", "media_play_pause"),
         "next": async_mock_service(hass, "media_player", "media_next_track"),
         "sound": async_mock_service(hass, "esphome", "nfc_reader_play_sound"),
+        "seek": async_mock_service(hass, "media_player", "media_seek"),
         "auto_off": async_mock_service(hass, "automation", "turn_off"),
     }
 
@@ -166,6 +167,7 @@ async def test_buttons_and_volume_limits(hass, reader, calls):
 
 async def test_lifting_card_pauses(hass, reader, calls):
     await _setup(hass, reader)
+    await _scan(hass, reader, "89-4A-71-E6")
     hass.states.async_set("binary_sensor.vordis_card", "on")
     await hass.async_block_till_done()
     hass.states.async_set(PLAYER, "playing", {"volume_level": 0.5})
@@ -188,6 +190,7 @@ async def test_pause_on_remove_switch(hass, reader, calls):
     assert hass.states.get(sw).state == "on"  # on by default
     box = entry.runtime_data.box
 
+    await _scan(hass, reader, "89-4A-71-E6")
     await hass.services.async_call("switch", "turn_off", {"entity_id": sw}, blocking=True)
     await hass.async_block_till_done()
     assert hass.states.get(sw).state == "off"
@@ -317,3 +320,200 @@ async def test_card_page_is_served(hass, reader, calls, hass_client):
     client = await hass_client()
     resp = await client.get("/vordisarvarpid_static/vordisarvarpid-kortamidar-card.js")
     assert resp.status == 200 and "vordisarvarpid-kortamidar-card" in await resp.text()
+
+
+# ---- 1.1: fixes and new features
+
+SERIES = ["library://audiobook/62", "library://audiobook/67", "library://audiobook/27"]
+
+
+@pytest.fixture(autouse=True)
+def no_seek_wait(monkeypatch):
+    monkeypatch.setattr("custom_components.vordisarvarpid.controller.SEEK_WAIT", 0)
+
+
+def _set_cards(entry, **changes):
+    """Change fields on the cards by name, e.g. _set_cards(entry, **{"Lína langsokkur": {"next_each_time": True}})."""
+    store = entry.runtime_data.store
+    cards = [dict(c) for c in store.cards]
+    for card in cards:
+        card.update(changes.get(card["name"], {}))
+    cards += changes.get("add", [])
+    store.set_cards(cards)
+    return store
+
+
+async def test_same_card_while_playing_is_left_alone(hass, reader, calls):
+    await _setup(hass, reader)
+    await _scan(hass, reader, "89-4A-71-E6")
+    hass.states.async_set(PLAYER, "playing", {"volume_level": 0.5})
+    await _scan(hass, reader, "89-4A-71-E6")  # e.g. the box restarted with the card on it
+    assert len(calls["ma_play"]) == 1 and not calls["play"]
+
+
+async def test_lifting_does_not_pause_what_the_box_did_not_start(hass, reader, calls):
+    await _setup(hass, reader)
+    await _lift(hass)  # someone else is playing on the speaker
+    assert not calls["pause"]
+    await _scan(hass, reader, "89-4A-71-E6")
+    await _lift(hass)
+    assert len(calls["pause"]) == 1
+    assert calls["sound"][-1].data["sound"] == "removed"
+
+
+async def test_max_volume_is_held(hass, reader, calls):
+    entry = await _setup(hass, reader)
+    hass.states.async_set(PLAYER, "playing", {"volume_level": 0.9})
+    await hass.async_block_till_done()
+    assert not calls["volume"]  # not ours
+    await _scan(hass, reader, "89-4A-71-E6")
+    calls["volume"].clear()
+    hass.states.async_set(PLAYER, "playing", {"volume_level": 0.95})
+    await hass.async_block_till_done()
+    assert calls["volume"][-1].data["volume_level"] == entry.runtime_data.box.max_volume == 0.6
+
+
+async def test_story_continues_where_it_stopped(hass, reader, calls):
+    entry = await _setup(hass, reader)
+    await _scan(hass, reader, "AA-BB")
+    assert calls["ma_play"][-1].data["media_id"] == SERIES
+    # second book, two minutes in, then paused
+    hass.states.async_set(PLAYER, "playing", {"media_content_id": SERIES[1], "media_position": 120})
+    await hass.async_block_till_done()
+    hass.states.async_set(PLAYER, "paused", {"media_content_id": SERIES[1], "media_position": 120})
+    await hass.async_block_till_done()
+    pos = entry.runtime_data.store.data["positions"]
+    assert list(pos.values())[0]["index"] == 1 and list(pos.values())[0]["elapsed"] == 120
+
+    await _scan(hass, reader, "89-4A-71-E6")  # another card in between
+    hass.states.async_set(PLAYER, "idle")
+    await _scan(hass, reader, "AA-BB")
+    assert calls["ma_play"][-1].data["media_id"] == SERIES[1:]
+    assert calls["seek"][-1].data["seek_position"] == 115
+    assert entry.runtime_data.store.data["history"][entry.runtime_data.store.card_for_tag("AA-BB")["id"]]["count"] == 2
+
+
+async def test_music_starts_from_the_top(hass, reader, calls):
+    await _setup(hass, reader)
+    await _scan(hass, reader, "89-4A-71-E6")
+    hass.states.async_set(PLAYER, "paused", {"media_position": 300})
+    await _scan(hass, reader, "AA-BB")
+    hass.states.async_set(PLAYER, "idle")
+    await _scan(hass, reader, "89-4A-71-E6")
+    assert calls["ma_play"][-1].data["media_id"] == "library://playlist/14" and not calls["seek"]
+
+
+async def test_next_book_each_time(hass, reader, calls):
+    entry = await _setup(hass, reader)
+    _set_cards(entry, **{"Lína langsokkur": {"next_each_time": True}})
+    for expected in (SERIES, SERIES[1:], SERIES[2], SERIES):
+        hass.states.async_set(PLAYER, "idle")
+        await _scan(hass, reader, "AA-BB")
+        assert calls["ma_play"][-1].data["media_id"] == expected
+
+
+async def test_card_with_its_own_speaker_and_volume(hass, reader, calls):
+    entry = await _setup(hass, reader)
+    hass.states.async_set("media_player.bedroom", "idle", {"volume_level": 0.5})
+    _set_cards(entry, **{"Lína langsokkur": {"player": "media_player.bedroom", "start_volume": 0.2}})
+    await _scan(hass, reader, "89-4A-71-E6")
+    hass.states.async_set(PLAYER, "playing", {"volume_level": 0.3})
+    await _scan(hass, reader, "AA-BB")
+    assert calls["ma_play"][-1].data["entity_id"] == "media_player.bedroom"
+    assert calls["volume"][-1].data == {"entity_id": "media_player.bedroom", "volume_level": 0.2}
+    assert calls["pause"][-1].data["entity_id"] == PLAYER  # the first speaker stops
+    assert entry.runtime_data.box.player == "media_player.bedroom"
+
+
+async def test_control_cards(hass, reader, calls):
+    entry = await _setup(hass, reader)
+    hass.states.async_set("media_player.bedroom", "idle")
+    _set_cards(entry, add=[
+        {"name": "Stopp", "tag_id": "C-1", "action": "stop"},
+        {"name": "Sofa", "tag_id": "C-2", "action": "sleep", "minutes": 20},
+        {"name": "Óvænt", "tag_id": "C-3", "action": "surprise"},
+        {"name": "Herbergið mitt", "tag_id": "C-4", "action": "speaker", "player": "media_player.bedroom"},
+    ])
+    box = entry.runtime_data.box
+    await _scan(hass, reader, "89-4A-71-E6")
+    hass.states.async_set(PLAYER, "playing", {"volume_level": 0.5})
+    await _scan(hass, reader, "C-1")
+    assert len(calls["pause"]) == 1 and len(calls["ma_play"]) == 1
+
+    await _scan(hass, reader, "C-2")
+    assert box.sleep_until is not None
+    await hass.services.async_call(DOMAIN, "sleep_timer", {"minutes": 0}, blocking=True)
+    assert box.sleep_until is None
+
+    hass.states.async_set(PLAYER, "idle")
+    await _scan(hass, reader, "C-3")
+    assert len(calls["ma_play"]) == 2
+
+    await _scan(hass, reader, "C-4")
+    assert box.default_player == "media_player.bedroom"
+    await hass.services.async_call(DOMAIN, "set_speaker", {}, blocking=True)
+    assert box.default_player == PLAYER
+
+
+async def test_quiet_hours(hass, reader, calls):
+    from datetime import timedelta
+    from homeassistant.util import dt as dt_util
+
+    now = dt_util.now()
+    entry = await _setup(
+        hass, reader,
+        quiet_start=(now - timedelta(hours=1)).strftime("%H:%M:%S"), quiet_end=(now + timedelta(hours=1)).strftime("%H:%M:%S"),
+        quiet_max_volume=0.25, quiet_stories_only=True,
+    )
+    box = entry.runtime_data.box
+    assert box.quiet and box.max_volume == 0.25 and box.base_max_volume == 0.6
+    await _scan(hass, reader, "89-4A-71-E6")  # music: not now
+    assert not calls["ma_play"] and calls["sound"][-1].data["sound"] == "unknown"
+    assert box.last_scan["blocked"] == "quiet"
+    await _scan(hass, reader, "AA-BB")  # a story is fine, at the quiet volume
+    assert len(calls["ma_play"]) == 1
+    assert calls["volume"][-1].data["volume_level"] == 0.25
+
+
+async def test_daily_limit(hass, reader, calls):
+    entry = await _setup(hass, reader, daily_limit=30)
+    box = entry.runtime_data.box
+    await _scan(hass, reader, "89-4A-71-E6")
+    assert len(calls["ma_play"]) == 1
+    box._usage()["seconds"] = 31 * 60
+    assert box.limit_reached
+    assert hass.states.get("sensor.vordisarvarpid_listened_today").attributes["limit"] == 30
+    hass.states.async_set(PLAYER, "idle")
+    await _scan(hass, reader, "AA-BB")
+    assert len(calls["ma_play"]) == 1 and box.last_scan["blocked"] == "limit"
+    # while playing, the next tick pauses
+    hass.states.async_set(PLAYER, "idle")
+    box._usage()["seconds"] = 0
+    await _scan(hass, reader, "AA-BB")
+    hass.states.async_set(PLAYER, "playing", {"volume_level": 0.3})
+    await hass.async_block_till_done()
+    box._usage()["seconds"] = 31 * 60
+    await box._on_tick(None)
+    assert len(calls["pause"]) == 1
+
+
+async def test_repair_notice_for_missing_speaker(hass, reader, calls):
+    from homeassistant.helpers import issue_registry as ir
+
+    entry = await _setup(hass, reader)
+    issues = ir.async_get(hass)
+    hass.states.async_set(PLAYER, "unavailable")
+    await _scan(hass, reader, "89-4A-71-E6")
+    assert issues.async_get_issue(DOMAIN, f"speaker_{entry.entry_id}")
+    hass.states.async_set(PLAYER, "idle")
+    await _scan(hass, reader, "89-4A-71-E6")
+    assert issues.async_get_issue(DOMAIN, f"speaker_{entry.entry_id}") is None
+
+
+async def test_diagnostics(hass, reader, calls):
+    from custom_components.vordisarvarpid.diagnostics import async_get_config_entry_diagnostics
+
+    entry = await _setup(hass, reader)
+    diag = await async_get_config_entry_diagnostics(hass, entry)
+    assert len(diag["cards"]) == 2 and diag["cards"][1]["items"] == 3
+    assert "tag_id" not in str(diag["cards"]) and "Lína" not in str(diag)

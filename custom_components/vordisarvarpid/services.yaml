@@ -17,3 +17,31 @@ stop:
       selector:
         config_entry:
           integration: vordisarvarpid
+sleep_timer:
+  fields:
+    minutes:
+      required: true
+      example: 15
+      selector:
+        number:
+          min: 0
+          max: 240
+          unit_of_measurement: min
+    entry_id:
+      required: false
+      selector:
+        config_entry:
+          integration: vordisarvarpid
+set_speaker:
+  fields:
+    player:
+      required: false
+      selector:
+        entity:
+          domain: media_player
+          integration: music_assistant
+    entry_id:
+      required: false
+      selector:
+        config_entry:
+          integration: vordisarvarpid

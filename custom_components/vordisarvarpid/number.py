@@ -29,7 +29,7 @@ class MaxVolumeNumber(VordisEntity, NumberEntity):
 
     @property
     def native_value(self) -> float:
-        return self.box.max_volume
+        return self.box.base_max_volume
 
     async def async_set_native_value(self, value: float) -> None:
         await self.box.async_set_max_volume(value)

@@ -13,12 +13,15 @@ import uuid
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
-from .const import DEFAULT_MAX_VOLUME, DOMAIN
+from .const import ACTIONS, DEFAULT_MAX_VOLUME, DOMAIN, STORY_TYPES
 
 STORAGE_VERSION = 1
 SAVE_DELAY = 2
 
-CARD_FIELDS = ("id", "name", "tag_id", "media_id", "media_type", "more_media", "shuffle", "keep_playing", "media")
+CARD_FIELDS = (
+    "id", "name", "tag_id", "media_id", "media_type", "more_media", "shuffle", "keep_playing", "media",
+    "remember", "next_each_time", "player", "start_volume", "action", "minutes",
+)
 MAX_NAMES = 5000
 
 
@@ -42,7 +45,45 @@ def clean_card(raw: dict[str, Any]) -> dict[str, Any]:
     card["shuffle"] = bool(raw.get("shuffle", False))
     # keep playing when this card is lifted off the box (default: pause)
     card["keep_playing"] = bool(raw.get("keep_playing", False))
+    # optional extras: only kept when they say something
+    if isinstance(raw.get("remember"), bool):
+        card["remember"] = raw["remember"]
+    else:
+        card.pop("remember", None)
+    if raw.get("next_each_time"):
+        card["next_each_time"] = True
+    else:
+        card.pop("next_each_time", None)
+    try:
+        volume = float(raw.get("start_volume") or 0)
+    except (TypeError, ValueError):
+        volume = 0
+    if 0 < volume <= 1:
+        card["start_volume"] = round(volume, 2)
+    else:
+        card.pop("start_volume", None)
+    if raw.get("action") in ACTIONS:
+        card["action"] = raw["action"]
+        try:
+            card["minutes"] = max(1, min(240, int(raw.get("minutes") or 0))) if raw.get("minutes") else None
+        except (TypeError, ValueError):
+            card["minutes"] = None
+        if card["minutes"] is None:
+            del card["minutes"]
+    else:
+        card.pop("action", None)
+        card.pop("minutes", None)
     return card
+
+
+def is_story(card: dict[str, Any]) -> bool:
+    return (card.get("media_type") or "") in STORY_TYPES
+
+
+def remembers(card: dict[str, Any]) -> bool:
+    """Whether the card continues where it stopped: stories do unless switched off, music only if asked."""
+    value = card.get("remember")
+    return value if isinstance(value, bool) else is_story(card)
 
 
 class VordisStore:
@@ -62,6 +103,11 @@ class VordisStore:
             "last_tag": None,
             "last_player": None,
             "max_volume": DEFAULT_MAX_VOLUME,
+            "speaker": None,       # speaker chosen with a "speaker" control card (None = the one in the settings)
+            "positions": {},       # card id -> {index, elapsed, time}: where a story stopped
+            "series_next": {},     # card id -> which book a "next book each time" card plays next
+            "history": {},         # card id -> {count, last, seconds}
+            "usage": {},           # {date, seconds}: listening today
         }
 
     async def async_load(self) -> None:
@@ -99,7 +145,8 @@ class VordisStore:
         cleaned = [clean_card(c) for c in cards]
         ids = {c["id"] for c in cleaned}
         # labels for deleted cards go too
-        self.data["labels"] = {k: v for k, v in self.data["labels"].items() if k in ids}
+        for key in ("labels", "positions", "series_next", "history"):
+            self.data[key] = {k: v for k, v in self.data[key].items() if k in ids}
         self.data["cards"] = cleaned
         self.schedule_save()
         return cleaned

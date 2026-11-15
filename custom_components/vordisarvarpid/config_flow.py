@@ -16,7 +16,12 @@ from .const import (
     BLUEPRINT_SUFFIX,
     CONF_BUTTON_EVENT,
     CONF_CARD_PRESENT,
+    CONF_DAILY_LIMIT,
     CONF_DISABLE_AUTOMATION,
+    CONF_QUIET_END,
+    CONF_QUIET_MAX_VOLUME,
+    CONF_QUIET_START,
+    CONF_QUIET_STORIES_ONLY,
     CONF_PAUSE_ON_REMOVE,
     CONF_PLAYER,
     CONF_READER_DEVICE,
@@ -64,6 +69,18 @@ def _schema(defaults: dict[str, Any], *, with_reader: bool = True) -> vol.Schema
         vol.Required(CONF_RESUME_SAME_CARD, default=defaults.get(CONF_RESUME_SAME_CARD, True)): selector.BooleanSelector(),
         vol.Optional(CONF_SOUND_SERVICE, description={"suggested_value": defaults.get(CONF_SOUND_SERVICE)}): selector.TextSelector(),
     })
+    if not with_reader:  # the extras are only in the settings, to keep the first setup short
+        fields.update({
+            vol.Optional(CONF_QUIET_START, description={"suggested_value": defaults.get(CONF_QUIET_START)}): selector.TimeSelector(),
+            vol.Optional(CONF_QUIET_END, description={"suggested_value": defaults.get(CONF_QUIET_END)}): selector.TimeSelector(),
+            vol.Required(CONF_QUIET_MAX_VOLUME, default=defaults.get(CONF_QUIET_MAX_VOLUME, 0)): selector.NumberSelector(
+                selector.NumberSelectorConfig(min=0, max=1, step=0.05, mode=selector.NumberSelectorMode.SLIDER)
+            ),
+            vol.Required(CONF_QUIET_STORIES_ONLY, default=defaults.get(CONF_QUIET_STORIES_ONLY, False)): selector.BooleanSelector(),
+            vol.Required(CONF_DAILY_LIMIT, default=defaults.get(CONF_DAILY_LIMIT, 0)): selector.NumberSelector(
+                selector.NumberSelectorConfig(min=0, max=600, step=5, unit_of_measurement="min", mode=selector.NumberSelectorMode.BOX)
+            ),
+        })
     return vol.Schema(fields)
 
 
@@ -202,7 +219,7 @@ class VordisOptionsFlow(OptionsFlow):
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         current = {**self.config_entry.data, **self.config_entry.options}
         if user_input is not None:
-            for key in (CONF_BUTTON_EVENT, CONF_CARD_PRESENT, CONF_SOUND_SERVICE):
+            for key in (CONF_BUTTON_EVENT, CONF_CARD_PRESENT, CONF_SOUND_SERVICE, CONF_QUIET_START, CONF_QUIET_END):
                 user_input.setdefault(key, "")
             return self.async_create_entry(data=user_input)
         return self.async_show_form(step_id="init", data_schema=_schema(current, with_reader=False))

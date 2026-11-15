@@ -48,7 +48,12 @@
           "volume_step": "Skref við hækkun/lækkun",
           "pause_on_remove": "Pása þegar kort er tekið af",
           "resume_same_card": "Halda áfram þar sem frá var horfið ef sama kort fer aftur á",
-          "sound_service": "Hljóð-aðgerð tækisins (t.d. esphome.nfc_reader_play_sound)"
+          "sound_service": "Hljóð-aðgerð tækisins (t.d. esphome.nfc_reader_play_sound)",
+          "quiet_start": "Rólegi tíminn byrjar",
+          "quiet_end": "Rólegi tíminn endar",
+          "quiet_max_volume": "Hámarksstyrkur á rólega tímanum (0 = óbreytt)",
+          "quiet_stories_only": "Aðeins sögukort á rólega tímanum",
+          "daily_limit": "Hlustun á dag (0 = engin mörk)"
         }
       }
     }
@@ -57,6 +62,9 @@
     "sensor": {
       "current_card": {
         "name": "Kort í spilun"
+      },
+      "listened_today": {
+        "name": "Hlustað í dag"
       }
     },
     "number": {
@@ -94,6 +102,34 @@
           "description": "Aðeins ef tækin eru fleiri en eitt."
         }
       }
+    },
+    "sleep_timer": {
+      "name": "Svefntímastillir",
+      "description": "Setur hátalara tækisins á pásu eftir ákveðinn tíma.",
+      "fields": {
+        "minutes": {
+          "name": "Mínútur",
+          "description": "0 hættir við."
+        },
+        "entry_id": {
+          "name": "Tæki",
+          "description": "Aðeins ef tækin eru fleiri en eitt."
+        }
+      }
+    },
+    "set_speaker": {
+      "name": "Velja hátalara",
+      "description": "Spilar á öðrum hátalara héðan í frá og flytur það sem er í spilun þangað.",
+      "fields": {
+        "player": {
+          "name": "Hátalari",
+          "description": "Autt = aftur á hátalarann í stillingunum."
+        },
+        "entry_id": {
+          "name": "Tæki",
+          "description": "Aðeins ef tækin eru fleiri en eitt."
+        }
+      }
     }
   },
   "exceptions": {
@@ -102,6 +138,16 @@
     },
     "no_card": {
       "message": "Ekkert kort heitir „{card}“."
+    }
+  },
+  "issues": {
+    "speaker_unavailable": {
+      "title": "Vordísarvarpið nær ekki í hátalarann",
+      "description": "Kort var lagt á tækið en hátalarinn `{speaker}` finnst ekki eða er ótengdur, svo ekkert spilaðist. Athugaðu að kveikt sé á hátalaranum eða veldu annan Music Assistant spilara í stillingum samþættingarinnar."
+    },
+    "no_music_assistant": {
+      "title": "Vordísarvarpið þarf Music Assistant",
+      "description": "Kortin eru spiluð í gegnum Music Assistant en sú samþætting er ekki uppsett. Bættu Music Assistant við og endurhladdu svo Vordísarvarpinu."
     }
   }
 }
