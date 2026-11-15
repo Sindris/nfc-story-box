@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.5
+
+Improved
+- The settings page is now in four folding groups (Speaker and reader, Playing, Quiet hours and limits,
+  Statistics), and every setting has a short explanation.
+- Settings are checked before saving: a half-set quiet period, a malformed action name, or a weekly-summary
+  notification action that does not exist are refused with a clear message, and what was typed is kept.
+- The first-setup form now has a label for "Play only on this speaker" too.
+
 ## 1.2.4
 
 Fixed

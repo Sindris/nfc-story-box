@@ -302,12 +302,33 @@ async def test_manual_flow_and_options(hass, reader, calls):
     await hass.async_block_till_done()
     entry = hass.config_entries.async_entries(DOMAIN)[0]
     result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert result["type"] is FlowResultType.FORM
+    assert set(result["data_schema"].schema) and {str(k) for k in result["data_schema"].schema} == {"speaker", "playback", "limits", "stats"}
+    # a half-set quiet period is refused, and what was typed stays
     result = await hass.config_entries.options.async_configure(result["flow_id"], {
-        "player": "media_player.other", "start_volume": 0.2, "volume_step": 0.05,
-        "pause_on_remove": False, "resume_same_card": True,
+        "speaker": {"player": "media_player.other"},
+        "playback": {"start_volume": 0.2, "volume_step": 0.05, "pause_on_remove": False, "resume_same_card": True},
+        "limits": {"quiet_start": "21:00:00", "quiet_max_volume": 0, "quiet_stories_only": False, "daily_limit": 0},
+        "stats": {"record_stats": True},
+    })
+    assert result["type"] is FlowResultType.FORM and result["errors"] == {"base": "quiet_incomplete"}
+    result = await hass.config_entries.options.async_configure(result["flow_id"], {
+        "speaker": {"player": "media_player.other", "only_speaker": True},
+        "playback": {"start_volume": 0.2, "volume_step": 0.05, "pause_on_remove": False, "resume_same_card": True},
+        "limits": {"quiet_start": "21:00:00", "quiet_end": "07:00:00", "quiet_max_volume": 0.3, "quiet_stories_only": False, "daily_limit": 0},
+        "stats": {"record_stats": True, "summary_notify": "notify.nowhere"},
+    })
+    assert result["type"] is FlowResultType.FORM and result["errors"] == {"base": "unknown_notify"}
+    result = await hass.config_entries.options.async_configure(result["flow_id"], {
+        "speaker": {"player": "media_player.other", "only_speaker": True},
+        "playback": {"start_volume": 0.2, "volume_step": 0.05, "pause_on_remove": False, "resume_same_card": True},
+        "limits": {"quiet_start": "21:00:00", "quiet_end": "07:00:00", "quiet_max_volume": 0.3, "quiet_stories_only": False, "daily_limit": 0},
+        "stats": {"record_stats": True},
     })
     assert result["type"] is FlowResultType.CREATE_ENTRY
     await hass.async_block_till_done()
+    assert entry.options["player"] == "media_player.other" and entry.options["only_speaker"] is True
+    assert entry.options["quiet_end"] == "07:00:00" and entry.options["summary_notify"] == ""
     assert entry.runtime_data.box.player == "media_player.other"
 
 

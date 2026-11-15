@@ -27,7 +27,8 @@
           "volume_step": "Skref við hækkun/lækkun",
           "pause_on_remove": "Pása þegar kort er tekið af",
           "resume_same_card": "Halda áfram þar sem frá var horfið ef sama kort fer aftur á",
-          "sound_service": "Hljóð-aðgerð tækisins (t.d. esphome.nfc_reader_play_sound)"
+          "sound_service": "Hljóð-aðgerð tækisins (t.d. esphome.nfc_reader_play_sound)",
+          "only_speaker": "Spila bara á þessum hátalara"
         }
       }
     },
@@ -39,26 +40,81 @@
   "options": {
     "step": {
       "init": {
-        "title": "Vordísarvarpið",
-        "data": {
-          "player": "Hátalari (aðeins Music Assistant spilarar)",
-          "button_event": "Takkar (event-eining)",
-          "card_present": "Kort á lesara (binary sensor)",
-          "start_volume": "Upphafsstyrkur (0 = breyta ekki)",
-          "volume_step": "Skref við hækkun/lækkun",
-          "pause_on_remove": "Pása þegar kort er tekið af",
-          "resume_same_card": "Halda áfram þar sem frá var horfið ef sama kort fer aftur á",
-          "sound_service": "Hljóð-aðgerð tækisins (t.d. esphome.nfc_reader_play_sound)",
-          "quiet_start": "Rólegi tíminn byrjar",
-          "quiet_end": "Rólegi tíminn endar",
-          "quiet_max_volume": "Hámarksstyrkur á rólega tímanum (0 = óbreytt)",
-          "quiet_stories_only": "Aðeins sögukort á rólega tímanum",
-          "daily_limit": "Hlustun á dag (0 = engin mörk)",
-          "record_stats": "Skrá hlustunartölfræði",
-          "summary_notify": "Vikuyfirlit: tilkynningaþjónusta (t.d. notify.mobile_app_siminn)",
-          "only_speaker": "Spila bara á völdum hátalara (slökkva á hópum sem hann er í)"
+        "title": "Stillingar Vordísarvarpsins",
+        "description": "Breytingarnar taka gildi um leið og þú vistar. Kort, saga og tölfræði haldast.",
+        "sections": {
+          "speaker": {
+            "name": "Hátalari og lesari",
+            "description": "Hvar kortin spilast og hvaða hlutar tækisins eru notaðir.",
+            "data": {
+              "player": "Hátalari (Music Assistant spilari)",
+              "only_speaker": "Spila bara á þessum hátalara",
+              "button_event": "Takkar (event-eining)",
+              "card_present": "Kort á lesara (binary sensor)",
+              "sound_service": "Hljóð-aðgerð tækisins"
+            },
+            "data_description": {
+              "player": "Kortin spilast hér. Aðeins Music Assistant spilarar eru í boði.",
+              "only_speaker": "Ef hátalarinn er í Music Assistant hópi sem er í gangi spilar Music Assistant á öllum hópnum. Kveiktu á þessu til að slökkva fyrst á hópnum svo aðeins þessi hátalari spili.",
+              "button_event": "Takkar tækisins (næsta, fyrra, hljóðstyrkur). Skildu eftir tómt ef þeir eru ekki til.",
+              "card_present": "Segir tækinu hvenær kort er tekið af svo það geti gert hlé. Tómt þýðir að aldrei er gert hlé.",
+              "sound_service": "Pípið þegar kort er lagt á (t.d. esphome.nfc_reader_play_sound). Finnst sjálfkrafa ef tómt."
+            }
+          },
+          "playback": {
+            "name": "Spilun",
+            "description": "Hljóðstyrkur og hvað gerist þegar kort er tekið af.",
+            "data": {
+              "start_volume": "Upphafsstyrkur",
+              "volume_step": "Skref við hækkun/lækkun",
+              "pause_on_remove": "Pása þegar kort er tekið af",
+              "resume_same_card": "Halda áfram þar sem frá var horfið"
+            },
+            "data_description": {
+              "start_volume": "Styrkur sem nýtt kort byrjar á. 0 þýðir að styrkur hátalarans er látinn í friði.",
+              "volume_step": "Hve mikið takkarnir breyta styrknum í hvert skipti.",
+              "pause_on_remove": "Gerir hlé þegar kortið er tekið af lesaranum.",
+              "resume_same_card": "Þegar sama kort er lagt aftur á heldur það áfram þar sem frá var horfið í stað þess að byrja upp á nýtt."
+            }
+          },
+          "limits": {
+            "name": "Rólegur tími og mörk",
+            "description": "Halda ró á nóttunni og takmarka hlustunartíma.",
+            "data": {
+              "quiet_start": "Rólegi tíminn byrjar",
+              "quiet_end": "Rólegi tíminn endar",
+              "quiet_max_volume": "Hámarksstyrkur á rólega tímanum",
+              "quiet_stories_only": "Aðeins sögukort á rólega tímanum",
+              "daily_limit": "Hlustun á dag"
+            },
+            "data_description": {
+              "quiet_start": "Stilltu bæði upphaf og endi, eða hafðu bæði tóm.",
+              "quiet_end": "Má vera eftir miðnætti (t.d. 22:00 til 07:00).",
+              "quiet_max_volume": "Styrkurinn fer ekki yfir þetta á rólega tímanum. 0 þýðir óbreytt.",
+              "quiet_stories_only": "Tónlistarkort spilast ekki á rólega tímanum, en sögukort gera það.",
+              "daily_limit": "Mínútur af hlustun á dag. 0 þýðir engin mörk."
+            }
+          },
+          "stats": {
+            "name": "Tölfræði",
+            "description": "Hlustunartölfræði og vikuyfirlit.",
+            "data": {
+              "record_stats": "Skrá hlustunartölfræði",
+              "summary_notify": "Vikuyfirlit: tilkynningaþjónusta"
+            },
+            "data_description": {
+              "record_stats": "Heldur skrá yfir hvað var spilað og hvenær (90 daga). Gögnin eru áfram í Home Assistant.",
+              "summary_notify": "Yfirlit er sent á sunnudögum kl. 18:00 með þessari aðgerð (t.d. notify.mobile_app_siminn). Tómt þýðir engin skilaboð."
+            }
+          }
         }
       }
+    },
+    "error": {
+      "invalid_service": "Aðgerð er á forminu domain.nafn, til dæmis notify.mobile_app_siminn.",
+      "unknown_notify": "Þessi tilkynningaaðgerð er ekki til í Home Assistant.",
+      "quiet_incomplete": "Rólegur tími þarf bæði upphaf og endi.",
+      "quiet_same": "Rólegi tíminn byrjar og endar á sama tíma."
     }
   },
   "entity": {

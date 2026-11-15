@@ -27,7 +27,8 @@
           "volume_step": "Volume step",
           "pause_on_remove": "Pause when the card is lifted",
           "resume_same_card": "Continue where it stopped when the same card goes back on",
-          "sound_service": "Sound action on the box (e.g. esphome.nfc_reader_play_sound)"
+          "sound_service": "Sound action on the box (e.g. esphome.nfc_reader_play_sound)",
+          "only_speaker": "Play only on this speaker"
         }
       }
     },
@@ -39,26 +40,81 @@
   "options": {
     "step": {
       "init": {
-        "title": "Vordísarvarpið",
-        "data": {
-          "player": "Speaker (Music Assistant player)",
-          "button_event": "Buttons (event entity)",
-          "card_present": "Card on reader (binary sensor)",
-          "start_volume": "Start volume (0 = don't change)",
-          "volume_step": "Volume step",
-          "pause_on_remove": "Pause when the card is lifted",
-          "resume_same_card": "Continue where it stopped when the same card goes back on",
-          "sound_service": "Sound action on the box (e.g. esphome.nfc_reader_play_sound)",
-          "quiet_start": "Quiet hours start",
-          "quiet_end": "Quiet hours end",
-          "quiet_max_volume": "Highest volume during quiet hours (0 = no change)",
-          "quiet_stories_only": "Only story cards during quiet hours",
-          "daily_limit": "Listening per day (0 = no limit)",
-          "record_stats": "Record listening statistics",
-          "summary_notify": "Weekly summary: notification action (e.g. notify.mobile_app_phone)",
-          "only_speaker": "Play only on the chosen speaker (switch off groups it is in)"
+        "title": "Vordísarvarpið settings",
+        "description": "Changes apply as soon as you save. Cards, history and statistics are kept.",
+        "sections": {
+          "speaker": {
+            "name": "Speaker and reader",
+            "description": "Where the cards play and which parts of the box are used.",
+            "data": {
+              "player": "Speaker (Music Assistant player)",
+              "only_speaker": "Play only on this speaker",
+              "button_event": "Buttons (event entity)",
+              "card_present": "Card on reader (binary sensor)",
+              "sound_service": "Sound action on the box"
+            },
+            "data_description": {
+              "player": "Cards play here. Only Music Assistant players are listed.",
+              "only_speaker": "If this speaker is part of a Music Assistant group that is on, Music Assistant plays on the whole group. Turn this on to switch that group off first, so only this speaker plays.",
+              "button_event": "The box's buttons (previous, next, volume). Leave empty if it has none.",
+              "card_present": "Tells the box when a card is lifted, so it can pause. Leave empty to never pause on lifting.",
+              "sound_service": "The beep played on a card (e.g. esphome.nfc_reader_play_sound). Found automatically if empty."
+            }
+          },
+          "playback": {
+            "name": "Playing",
+            "description": "Volume and what happens when a card is lifted.",
+            "data": {
+              "start_volume": "Start volume",
+              "volume_step": "Volume step",
+              "pause_on_remove": "Pause when the card is lifted",
+              "resume_same_card": "Continue where it stopped"
+            },
+            "data_description": {
+              "start_volume": "Volume a new card starts at. 0 leaves the speaker's volume as it is.",
+              "volume_step": "How much the volume buttons change it each press.",
+              "pause_on_remove": "Pauses when the card is taken off the reader.",
+              "resume_same_card": "When the same card goes back on, it continues where it stopped instead of starting over."
+            }
+          },
+          "limits": {
+            "name": "Quiet hours and limits",
+            "description": "Keep the box calm at night and limit listening time.",
+            "data": {
+              "quiet_start": "Quiet hours start",
+              "quiet_end": "Quiet hours end",
+              "quiet_max_volume": "Highest volume in quiet hours",
+              "quiet_stories_only": "Only story cards in quiet hours",
+              "daily_limit": "Listening per day"
+            },
+            "data_description": {
+              "quiet_start": "Set both start and end, or leave both empty.",
+              "quiet_end": "Can be after midnight (e.g. 22:00 to 07:00).",
+              "quiet_max_volume": "Volume is held at or below this in quiet hours. 0 means no change.",
+              "quiet_stories_only": "Music cards are not played in quiet hours; story cards are.",
+              "daily_limit": "Minutes of listening per day. 0 means no limit."
+            }
+          },
+          "stats": {
+            "name": "Statistics",
+            "description": "Listening statistics and the weekly summary.",
+            "data": {
+              "record_stats": "Record listening statistics",
+              "summary_notify": "Weekly summary: notification action"
+            },
+            "data_description": {
+              "record_stats": "Keeps a log of what was played and when (90 days). It stays in Home Assistant.",
+              "summary_notify": "Sunday 18:00 summary is sent with this action (e.g. notify.mobile_app_phone). Leave empty for no message."
+            }
+          }
         }
       }
+    },
+    "error": {
+      "invalid_service": "An action looks like domain.name, for example notify.mobile_app_phone.",
+      "unknown_notify": "That notification action does not exist in Home Assistant.",
+      "quiet_incomplete": "Quiet hours need both a start and an end.",
+      "quiet_same": "Quiet hours start and end at the same time."
     }
   },
   "entity": {

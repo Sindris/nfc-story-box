@@ -9,6 +9,7 @@ import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.data_entry_flow import section
 from homeassistant.helpers import device_registry as dr, entity_registry as er, selector
 from homeassistant.util.yaml import load_yaml
 
@@ -46,48 +47,102 @@ SETTING_KEYS = (
 )
 
 
-def _schema(defaults: dict[str, Any], *, with_reader: bool = True) -> vol.Schema:
-    fields: dict[Any, Any] = {}
-    if with_reader:
-        fields[vol.Required(CONF_READER_DEVICE, default=defaults.get(CONF_READER_DEVICE, vol.UNDEFINED))] = (
-            selector.DeviceSelector(selector.DeviceSelectorConfig(integration="esphome"))
+def _fields(defaults: dict[str, Any]) -> dict[str, tuple[Any, Any]]:
+    """Every setting as (marker, selector), by key."""
+    def opt(key: str) -> Any:
+        return vol.Optional(key, description={"suggested_value": defaults.get(key)})
+
+    def req(key: str, fallback: Any) -> Any:
+        return vol.Required(key, default=defaults.get(key, fallback))
+
+    slider = lambda lo, hi, step: selector.NumberSelector(  # noqa: E731
+        selector.NumberSelectorConfig(min=lo, max=hi, step=step, mode=selector.NumberSelectorMode.SLIDER)
+    )
+    return {
+        CONF_READER_DEVICE: (
+            vol.Required(CONF_READER_DEVICE, default=defaults.get(CONF_READER_DEVICE, vol.UNDEFINED)),
+            selector.DeviceSelector(selector.DeviceSelectorConfig(integration="esphome")),
+        ),
+        CONF_PLAYER: (
+            vol.Required(CONF_PLAYER, default=defaults.get(CONF_PLAYER, vol.UNDEFINED)),
+            selector.EntitySelector(selector.EntitySelectorConfig(domain="media_player", integration="music_assistant")),
+        ),
+        CONF_ONLY_SPEAKER: (req(CONF_ONLY_SPEAKER, False), selector.BooleanSelector()),
+        CONF_BUTTON_EVENT: (opt(CONF_BUTTON_EVENT), selector.EntitySelector(selector.EntitySelectorConfig(domain="event"))),
+        CONF_CARD_PRESENT: (opt(CONF_CARD_PRESENT), selector.EntitySelector(selector.EntitySelectorConfig(domain="binary_sensor"))),
+        CONF_SOUND_SERVICE: (opt(CONF_SOUND_SERVICE), selector.TextSelector()),
+        CONF_START_VOLUME: (req(CONF_START_VOLUME, DEFAULT_START_VOLUME), slider(0, 1, 0.05)),
+        CONF_VOLUME_STEP: (req(CONF_VOLUME_STEP, DEFAULT_VOLUME_STEP), slider(0.01, 0.2, 0.01)),
+        CONF_PAUSE_ON_REMOVE: (req(CONF_PAUSE_ON_REMOVE, True), selector.BooleanSelector()),
+        CONF_RESUME_SAME_CARD: (req(CONF_RESUME_SAME_CARD, True), selector.BooleanSelector()),
+        CONF_QUIET_START: (opt(CONF_QUIET_START), selector.TimeSelector()),
+        CONF_QUIET_END: (opt(CONF_QUIET_END), selector.TimeSelector()),
+        CONF_QUIET_MAX_VOLUME: (req(CONF_QUIET_MAX_VOLUME, 0), slider(0, 1, 0.05)),
+        CONF_QUIET_STORIES_ONLY: (req(CONF_QUIET_STORIES_ONLY, False), selector.BooleanSelector()),
+        CONF_DAILY_LIMIT: (
+            req(CONF_DAILY_LIMIT, 0),
+            selector.NumberSelector(selector.NumberSelectorConfig(
+                min=0, max=600, step=5, unit_of_measurement="min", mode=selector.NumberSelectorMode.BOX)),
+        ),
+        CONF_RECORD_STATS: (req(CONF_RECORD_STATS, True), selector.BooleanSelector()),
+        CONF_SUMMARY_NOTIFY: (opt(CONF_SUMMARY_NOTIFY), selector.TextSelector()),
+    }
+
+
+# The settings page: groups, in order, and whether a group starts folded.
+SECTIONS: dict[str, tuple[tuple[str, ...], bool]] = {
+    "speaker": ((CONF_PLAYER, CONF_ONLY_SPEAKER, CONF_BUTTON_EVENT, CONF_CARD_PRESENT, CONF_SOUND_SERVICE), False),
+    "playback": ((CONF_START_VOLUME, CONF_VOLUME_STEP, CONF_PAUSE_ON_REMOVE, CONF_RESUME_SAME_CARD), False),
+    "limits": ((CONF_QUIET_START, CONF_QUIET_END, CONF_QUIET_MAX_VOLUME, CONF_QUIET_STORIES_ONLY, CONF_DAILY_LIMIT), True),
+    "stats": ((CONF_RECORD_STATS, CONF_SUMMARY_NOTIFY), True),
+}
+OPTIONAL_TEXT = (CONF_BUTTON_EVENT, CONF_CARD_PRESENT, CONF_SOUND_SERVICE, CONF_QUIET_START, CONF_QUIET_END, CONF_SUMMARY_NOTIFY)
+
+
+def _schema(defaults: dict[str, Any]) -> vol.Schema:
+    """First setup: a short flat form."""
+    fields = _fields(defaults)
+    keys = (CONF_READER_DEVICE, CONF_PLAYER, CONF_ONLY_SPEAKER, CONF_BUTTON_EVENT, CONF_CARD_PRESENT, CONF_START_VOLUME,
+            CONF_VOLUME_STEP, CONF_PAUSE_ON_REMOVE, CONF_RESUME_SAME_CARD, CONF_SOUND_SERVICE)
+    return vol.Schema({fields[k][0]: fields[k][1] for k in keys})
+
+
+def _options_schema(defaults: dict[str, Any]) -> vol.Schema:
+    """The settings page: the same settings in folding groups."""
+    fields = _fields(defaults)
+    return vol.Schema({
+        vol.Required(name): section(
+            vol.Schema({fields[k][0]: fields[k][1] for k in keys}), {"collapsed": collapsed}
         )
-    fields.update({
-        vol.Required(CONF_PLAYER, default=defaults.get(CONF_PLAYER, vol.UNDEFINED)): selector.EntitySelector(
-            selector.EntitySelectorConfig(domain="media_player", integration="music_assistant")
-        ),
-        vol.Optional(CONF_BUTTON_EVENT, description={"suggested_value": defaults.get(CONF_BUTTON_EVENT)}): selector.EntitySelector(
-            selector.EntitySelectorConfig(domain="event")
-        ),
-        vol.Optional(CONF_CARD_PRESENT, description={"suggested_value": defaults.get(CONF_CARD_PRESENT)}): selector.EntitySelector(
-            selector.EntitySelectorConfig(domain="binary_sensor")
-        ),
-        vol.Required(CONF_START_VOLUME, default=defaults.get(CONF_START_VOLUME, DEFAULT_START_VOLUME)): selector.NumberSelector(
-            selector.NumberSelectorConfig(min=0, max=1, step=0.05, mode=selector.NumberSelectorMode.SLIDER)
-        ),
-        vol.Required(CONF_VOLUME_STEP, default=defaults.get(CONF_VOLUME_STEP, DEFAULT_VOLUME_STEP)): selector.NumberSelector(
-            selector.NumberSelectorConfig(min=0.01, max=0.2, step=0.01, mode=selector.NumberSelectorMode.SLIDER)
-        ),
-        vol.Required(CONF_PAUSE_ON_REMOVE, default=defaults.get(CONF_PAUSE_ON_REMOVE, True)): selector.BooleanSelector(),
-        vol.Required(CONF_RESUME_SAME_CARD, default=defaults.get(CONF_RESUME_SAME_CARD, True)): selector.BooleanSelector(),
-        vol.Required(CONF_ONLY_SPEAKER, default=defaults.get(CONF_ONLY_SPEAKER, False)): selector.BooleanSelector(),
-        vol.Optional(CONF_SOUND_SERVICE, description={"suggested_value": defaults.get(CONF_SOUND_SERVICE)}): selector.TextSelector(),
+        for name, (keys, collapsed) in SECTIONS.items()
     })
-    if not with_reader:  # the extras are only in the settings, to keep the first setup short
-        fields.update({
-            vol.Optional(CONF_QUIET_START, description={"suggested_value": defaults.get(CONF_QUIET_START)}): selector.TimeSelector(),
-            vol.Optional(CONF_QUIET_END, description={"suggested_value": defaults.get(CONF_QUIET_END)}): selector.TimeSelector(),
-            vol.Required(CONF_QUIET_MAX_VOLUME, default=defaults.get(CONF_QUIET_MAX_VOLUME, 0)): selector.NumberSelector(
-                selector.NumberSelectorConfig(min=0, max=1, step=0.05, mode=selector.NumberSelectorMode.SLIDER)
-            ),
-            vol.Required(CONF_QUIET_STORIES_ONLY, default=defaults.get(CONF_QUIET_STORIES_ONLY, False)): selector.BooleanSelector(),
-            vol.Required(CONF_DAILY_LIMIT, default=defaults.get(CONF_DAILY_LIMIT, 0)): selector.NumberSelector(
-                selector.NumberSelectorConfig(min=0, max=600, step=5, unit_of_measurement="min", mode=selector.NumberSelectorMode.BOX)
-            ),
-            vol.Required(CONF_RECORD_STATS, default=defaults.get(CONF_RECORD_STATS, True)): selector.BooleanSelector(),
-            vol.Optional(CONF_SUMMARY_NOTIFY, description={"suggested_value": defaults.get(CONF_SUMMARY_NOTIFY)}): selector.TextSelector(),
-        })
-    return vol.Schema(fields)
+
+
+def _flatten(user_input: dict[str, Any]) -> dict[str, Any]:
+    """The groups of the settings page back into one flat dict (a flat dict passes through)."""
+    flat: dict[str, Any] = {}
+    for key, value in user_input.items():
+        if key in SECTIONS and isinstance(value, dict):
+            flat.update(value)
+        else:
+            flat[key] = value
+    return flat
+
+
+def _problems(hass: HomeAssistant, data: dict[str, Any]) -> str | None:
+    """The first thing wrong with the settings, as an error key."""
+    for key in (CONF_SOUND_SERVICE, CONF_SUMMARY_NOTIFY):
+        value = str(data.get(key) or "").strip()
+        if value and (value.count(".") != 1 or not all(value.split("."))):
+            return "invalid_service"
+    notify = str(data.get(CONF_SUMMARY_NOTIFY) or "").strip()
+    if notify and not hass.services.has_service(*notify.split(".")):
+        return "unknown_notify"
+    if bool(data.get(CONF_QUIET_START)) != bool(data.get(CONF_QUIET_END)):
+        return "quiet_incomplete"
+    if data.get(CONF_QUIET_START) and data.get(CONF_QUIET_START) == data.get(CONF_QUIET_END):
+        return "quiet_same"
+    return None
 
 
 def sound_service_for(hass: HomeAssistant, device_id: str | None) -> str:
@@ -224,8 +279,14 @@ class VordisOptionsFlow(OptionsFlow):
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         current = {**self.config_entry.data, **self.config_entry.options}
+        errors: dict[str, str] = {}
         if user_input is not None:
-            for key in (CONF_BUTTON_EVENT, CONF_CARD_PRESENT, CONF_SOUND_SERVICE, CONF_QUIET_START, CONF_QUIET_END, CONF_SUMMARY_NOTIFY):
-                user_input.setdefault(key, "")
-            return self.async_create_entry(data=user_input)
-        return self.async_show_form(step_id="init", data_schema=_schema(current, with_reader=False))
+            flat = _flatten(user_input)
+            for key in OPTIONAL_TEXT:
+                flat[key] = str(flat.get(key) or "").strip()
+            problem = _problems(self.hass, flat)
+            if problem is None:
+                return self.async_create_entry(data=flat)
+            errors["base"] = problem
+            current = {**current, **flat}  # keep what was typed
+        return self.async_show_form(step_id="init", data_schema=_options_schema(current), errors=errors)
