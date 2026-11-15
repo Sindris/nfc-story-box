@@ -61,7 +61,6 @@ DEFAULT_SLEEP_MINUTES = 15
 FRONTEND_URL = f"/{DOMAIN}_static"
 CARD_FILE = "nfc-story-box-card.js"
 LOADER_FILE = "nfc-story-box-loader.js"
-STATS_CARD_FILE = "nfc-story-box-stats-card.js"
 
 SIGNAL_UPDATED = f"{DOMAIN}_updated_{{}}"
 

@@ -10,7 +10,7 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import section
-from homeassistant.helpers import device_registry as dr, entity_registry as er, selector
+from homeassistant.helpers import device_registry as dr, selector
 
 from .const import (
     CONF_BUTTON_EVENT,
@@ -34,7 +34,6 @@ from .const import (
     CONF_SOUND_SERVICE,
     CONF_START_VOLUME,
     CONF_VOLUME_STEP,
-    DEFAULT_MAX_VOLUME,
     DEFAULT_START_VOLUME,
     DEFAULT_VOLUME_STEP,
     DOMAIN,
