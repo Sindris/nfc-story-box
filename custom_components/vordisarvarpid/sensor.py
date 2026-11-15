@@ -9,12 +9,15 @@ from homeassistant.const import UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
+from homeassistant.util import dt as dt_util
+
+from . import stats as statlib
 from .data import VordisConfigEntry
 from .entity import VordisEntity
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: VordisConfigEntry, add: AddConfigEntryEntitiesCallback) -> None:
-    add([CurrentCardSensor(entry), ListenedTodaySensor(entry)])
+    add([CurrentCardSensor(entry), ListenedTodaySensor(entry), ListenedWeekSensor(entry), MostPlayedSensor(entry)])
 
 
 class CurrentCardSensor(VordisEntity, SensorEntity):
@@ -63,3 +66,45 @@ class ListenedTodaySensor(VordisEntity, SensorEntity):
     def extra_state_attributes(self) -> dict[str, Any]:
         limit = self.box.daily_limit // 60
         return {"limit": limit or None, "limit_reached": self.box.limit_reached}
+
+
+class ListenedWeekSensor(VordisEntity, SensorEntity):
+    """Minutes played in the last 7 days (with the 7 days before as an attribute)."""
+
+    _attr_icon = "mdi:chart-timeline-variant"
+    _attr_device_class = SensorDeviceClass.DURATION
+    _attr_native_unit_of_measurement = UnitOfTime.MINUTES
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, entry: VordisConfigEntry) -> None:
+        super().__init__(entry, "listened_week")
+
+    def _summary(self) -> dict[str, Any]:
+        return statlib.summary(self.box.store.data, dt_util.now().date(), 7)
+
+    @property
+    def native_value(self) -> int:
+        return self._summary()["week"] // 60
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        data = self._summary()
+        return {"previous_week": data["prev_week"] // 60, "starts": data["starts"], "recording": self.box.conf.get("record_stats", True)}
+
+
+class MostPlayedSensor(VordisEntity, SensorEntity):
+    """The card played the most in the last 30 days."""
+
+    _attr_icon = "mdi:trophy-outline"
+
+    def __init__(self, entry: VordisConfigEntry) -> None:
+        super().__init__(entry, "most_played")
+
+    @property
+    def native_value(self) -> str | None:
+        return statlib.top_card(self.box.store.data, dt_util.now().date())[0]
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        top = statlib.top_card(self.box.store.data, dt_util.now().date())[1]
+        return {"top": [{"name": c["name"], "minutes": c["sec"] // 60} for c in top]}

@@ -13,6 +13,7 @@ import uuid
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
+from . import stats
 from .const import ACTIONS, DEFAULT_MAX_VOLUME, DOMAIN, STORY_TYPES
 
 STORAGE_VERSION = 1
@@ -108,6 +109,7 @@ class VordisStore:
             "series_next": {},     # card id -> which book a "next book each time" card plays next
             "history": {},         # card id -> {count, last, seconds}
             "usage": {},           # {date, seconds}: listening today
+            "stats": {},           # per-day listening log, see stats.py
         }
 
     async def async_load(self) -> None:
@@ -116,6 +118,7 @@ class VordisStore:
         if isinstance(loaded, dict):
             data.update({k: v for k, v in loaded.items() if k in data})
         data["cards"] = [clean_card(c) for c in data["cards"] if isinstance(c, dict)]
+        stats.ensure(data)
         self.data = data
 
     def schedule_save(self) -> None:

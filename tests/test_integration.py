@@ -538,3 +538,106 @@ async def test_speaker_in_a_group_that_is_on(hass, reader, calls):
     hass.states.async_set(PLAYER, "idle", {"volume_level": 0.5, "active_queue": "own"})
     await _scan(hass, reader, "AA-BB")
     assert calls["ma_play"][-1].data["entity_id"] == PLAYER
+
+
+# ---- statistics
+async def _listen(hass, reader, box, seconds=120):
+    import time
+
+    await _scan(hass, reader, "89-4A-71-E6")
+    hass.states.async_set(PLAYER, "playing", {"volume_level": 0.3})
+    await hass.async_block_till_done()
+    box._playing_since = time.monotonic() - seconds
+    box._account()
+
+
+async def test_statistics_are_recorded(hass, reader, calls):
+    from homeassistant.util import dt as dt_util
+
+    entry = await _setup(hass, reader)
+    box = entry.runtime_data.box
+    await _listen(hass, reader, box, 120)
+    stats = entry.runtime_data.store.data["stats"]
+    today = dt_util.now().date().isoformat()
+    card_id = entry.runtime_data.store.cards[0]["id"]
+    day = stats["days"][today]
+    assert 119 <= day["s"] <= 125 and day["m"] == day["s"] and day["t"] == 0 and day["n"] == 1
+    assert 119 <= day["c"][card_id] <= 125 and PLAYER in day["p"]
+    assert stats["plays"][-1]["name"] == "Vordís Partí" and 119 <= stats["plays"][-1]["sec"] <= 125
+    assert stats["names"][card_id] == "Vordís Partí"
+    assert hass.states.get("sensor.vordisarvarpid_listened_this_week") is not None
+
+
+async def test_story_time_counts_as_stories(hass, reader, calls):
+    import time
+
+    entry = await _setup(hass, reader)
+    box = entry.runtime_data.box
+    await _scan(hass, reader, "AA-BB")
+    hass.states.async_set(PLAYER, "playing", {"volume_level": 0.3})
+    await hass.async_block_till_done()
+    box._playing_since = time.monotonic() - 60
+    box._account()
+    day = next(iter(entry.runtime_data.store.data["stats"]["days"].values()))
+    assert day["t"] >= 59 and day["m"] == 0
+
+
+async def test_statistics_can_be_switched_off(hass, reader, calls):
+    entry = await _setup(hass, reader, record_stats=False)
+    await _listen(hass, reader, entry.runtime_data.box, 90)
+    stats = entry.runtime_data.store.data["stats"]
+    assert stats["days"] == {} and stats["plays"] == []
+
+
+def test_summary_numbers():
+    from datetime import date
+
+    from custom_components.vordisarvarpid import stats as statlib
+
+    data = {"cards": [{"id": "a", "name": "A"}, {"id": "b", "name": "B"}, {"id": "c", "name": "C"}], "history": {"a": {"count": 3}}, "positions": {}}
+    today = date(2026, 11, 15)  # a Sunday
+    for day, hour, sec, cid in (("2026-11-15", 19, 600, "a"), ("2026-11-14", 8, 300, "b"), ("2026-11-05", 20, 900, "a")):
+        statlib.record_time(data, day=day, hour=hour, seconds=sec, card={"id": cid, "name": cid.upper()}, player="media_player.x", story=cid == "b", now_iso="2026-11-15T10:00:00")
+    entry = statlib.record_start(data, day="2026-11-15", card={"id": "b", "name": "B"}, player="media_player.x", now_iso="2026-11-15T10:00:00")
+    assert entry["sec"] == 0
+    out = statlib.summary(data, today, 30)
+    assert out["today"] == 600 and out["week"] == 900 and out["prev_week"] == 900  # 11-05 falls in the week before last... within 8-14
+    assert out["total"] == 1800 and out["listening_days"] == 3 and out["starts"] == 1
+    assert [c["id"] for c in out["cards"]] == ["a", "b"] and out["cards"][0]["sec"] == 1500
+    assert out["heat"][6][19] == 600  # Sunday 19:00
+    assert out["stories"] == 300 and out["music"] == 1500
+    assert out["cards"][1]["short"] == 1  # B was started and lifted straight away
+    assert {u["id"] for u in out["unplayed"]} == {"a", "b", "c"}
+    assert out["players"][0]["sec"] == 1800
+    # old days are dropped
+    statlib.record_time(data, day="2026-01-01", hour=1, seconds=5, card=None, player=None, story=False, now_iso="x")
+    for i in range(100):
+        statlib.record_time(data, day=f"2026-02-{i:03d}", hour=1, seconds=5, card=None, player=None, story=False, now_iso="x")
+    assert len(data["stats"]["days"]) == 90
+
+
+async def test_statistics_websocket(hass, reader, calls, hass_ws_client):
+    entry = await _setup(hass, reader)
+    await _listen(hass, reader, entry.runtime_data.box, 150)
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": "vordisarvarpid/stats", "span": 7})
+    res = (await client.receive_json())["result"]
+    assert res["span"] == 7 and len(res["series"]) == 7 and res["recording"] is True
+    assert res["cards"][0]["name"] == "Vordís Partí" and res["today"] >= 149
+    await client.send_json({"id": 2, "type": "vordisarvarpid/reset_stats"})
+    assert (await client.receive_json())["success"]
+    await client.send_json({"id": 3, "type": "vordisarvarpid/stats"})
+    res = (await client.receive_json())["result"]
+    assert res["total"] == 0 and res["cards"] == []
+
+
+async def test_weekly_summary(hass, reader, calls):
+    entry = await _setup(hass, reader, summary_notify="notify.phone")
+    notes = async_mock_service(hass, "notify", "phone")
+    events = []
+    hass.bus.async_listen("vordisarvarpid_weekly_summary", lambda e: events.append(e.data))
+    await _listen(hass, reader, entry.runtime_data.box, 600)
+    await hass.services.async_call(DOMAIN, "weekly_summary", {}, blocking=True)
+    await hass.async_block_till_done()
+    assert events and events[-1]["favourite"] == "Vordís Partí" and events[-1]["minutes"] >= 9
+    assert notes and "Vordís Partí" in notes[-1].data["message"]

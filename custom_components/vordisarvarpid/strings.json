@@ -53,7 +53,9 @@
           "quiet_end": "Quiet hours end",
           "quiet_max_volume": "Highest volume during quiet hours (0 = no change)",
           "quiet_stories_only": "Only story cards during quiet hours",
-          "daily_limit": "Listening per day (0 = no limit)"
+          "daily_limit": "Listening per day (0 = no limit)",
+          "record_stats": "Record listening statistics",
+          "summary_notify": "Weekly summary: notification action (e.g. notify.mobile_app_phone)"
         }
       }
     }
@@ -65,6 +67,12 @@
       },
       "listened_today": {
         "name": "Listened today"
+      },
+      "listened_week": {
+        "name": "Listened this week"
+      },
+      "most_played": {
+        "name": "Most played card"
       }
     },
     "number": {
@@ -75,6 +83,9 @@
     "switch": {
       "pause_on_remove": {
         "name": "Pause when the card is lifted"
+      },
+      "record_stats": {
+        "name": "Record statistics"
       }
     }
   },
@@ -125,6 +136,16 @@
           "name": "Speaker",
           "description": "Leave empty to go back to the speaker in the settings."
         },
+        "entry_id": {
+          "name": "Box",
+          "description": "Only needed with more than one box."
+        }
+      }
+    },
+    "weekly_summary": {
+      "name": "Weekly summary",
+      "description": "Sends the summary of the week now (it is also sent on Sundays at 18:00).",
+      "fields": {
         "entry_id": {
           "name": "Box",
           "description": "Only needed with more than one box."

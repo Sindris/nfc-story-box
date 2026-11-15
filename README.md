@@ -21,6 +21,10 @@ The page is in Icelandic.
   or surprise (plays a random card).
 - **Bedtime rules** (integration settings): quiet hours with a lower maximum volume, optionally story
   cards only; a daily listening limit; a sleep timer.
+- **Statistics** (`custom:vordisarvarpid-tolfraedi-card`, Icelandic): listening today and this week,
+  a bar per day (music / stories), the most played cards, cards not played for 30+ days, when the box is
+  used (weekday × hour), stories in progress, time per speaker and the latest plays. Kept for 90 days in
+  Home Assistant only; can be switched off or cleared. A summary of the week goes out on Sundays at 18:00.
 - **Maximum volume** is held while the box is playing, however the volume is changed.
 - **Buttons.** Play/pause, next, previous, volume up and down from the box's ESPHome event entity.
 - **Sounds.** Calls the box's "play sound" action with `success`, `unknown` or `removed`.
@@ -41,16 +45,33 @@ The page is in Icelandic.
 |---|---|
 | `sensor.<box>_card_playing` | The card playing (or played last); attributes: speaker, sleep timer, quiet hours, last scan |
 | `sensor.<box>_listened_today` | Minutes played today; attributes: limit, limit reached |
+| `sensor.<box>_listened_this_week` | Minutes in the last 7 days; attributes: previous week, number of plays |
+| `sensor.<box>_most_played_card` | The card played most in the last 30 days; attribute: top 3 |
 | `number.<box>_max_volume` | Highest volume while the box is playing |
 | `switch.<box>_pause_when_the_card_is_lifted` | Off = nothing pauses when a card is lifted |
 | `vordisarvarpid.play_card` | Play a card (or run a control card) by name or tag id |
 | `vordisarvarpid.stop` | Pause the box's speaker |
 | `vordisarvarpid.sleep_timer` | Pause after a number of minutes (0 cancels) |
+| `switch.<box>_record_statistics` | Off = no listening statistics are recorded |
+| `vordisarvarpid.weekly_summary` | Send the summary of the week now (event `vordisarvarpid_weekly_summary`, and a notification if set) |
 | `vordisarvarpid.set_speaker` | Play on another speaker from now on, moving what is playing |
 | event `vordisarvarpid_card_scanned` | Fired for every scan on the box (`known`, `blocked`, `name`, `tag_id`) |
 
 Problems show up under Settings → Repairs (speaker unavailable, Music Assistant missing), and the
 integration has a diagnostics download.
+
+## Statistics card
+
+Add it to any dashboard (a panel view works well):
+
+```yaml
+type: custom:vordisarvarpid-tolfraedi-card
+span: 30        # 7, 30 or 90 days (the page can change it)
+```
+
+Statistics are recorded from the moment version 1.2 is installed. In the integration's settings you can
+turn recording off and set a notification action (for example `notify.mobile_app_phone`) that gets the
+weekly summary on Sundays at 18:00; the event `vordisarvarpid_weekly_summary` is always fired.
 
 ## Install
 

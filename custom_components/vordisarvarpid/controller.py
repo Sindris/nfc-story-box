@@ -14,9 +14,15 @@ from homeassistant.const import STATE_IDLE, STATE_OFF, STATE_PAUSED, STATE_PLAYI
 from homeassistant.core import CALLBACK_TYPE, Event, EventStateChangedData, HomeAssistant, callback
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.dispatcher import async_dispatcher_send
-from homeassistant.helpers.event import async_call_later, async_track_state_change_event, async_track_time_interval
+from homeassistant.helpers.event import (
+    async_call_later,
+    async_track_state_change_event,
+    async_track_time_change,
+    async_track_time_interval,
+)
 from homeassistant.util import dt as dt_util
 
+from . import stats as statlib
 from .const import (
     ACTION_SLEEP,
     ACTION_SPEAKER,
@@ -35,6 +41,8 @@ from .const import (
     CONF_QUIET_END,
     CONF_QUIET_MAX_VOLUME,
     CONF_QUIET_START,
+    CONF_RECORD_STATS,
+    CONF_SUMMARY_NOTIFY,
     CONF_QUIET_STORIES_ONLY,
     CONF_READER_DEVICE,
     CONF_RESUME_SAME_CARD,
@@ -46,6 +54,7 @@ from .const import (
     DEFAULT_VOLUME_STEP,
     DOMAIN,
     EVENT_CARD_SCANNED,
+    EVENT_WEEKLY_SUMMARY,
     MIN_VOLUME,
     SIGNAL_UPDATED,
 )
@@ -95,6 +104,7 @@ class VordisBox:
         self._offset = 0                    # where in a series the queue started
         self._last_index = 0
         self._started = 0.0
+        self._play: dict[str, Any] | None = None   # the entry in the statistics for what is playing now
         self._playing_since: float | None = None
         self._watched: str | None = None
         self._watch_unsub: CALLBACK_TYPE | None = None
@@ -203,11 +213,45 @@ class VordisBox:
             if card:
                 hist = self.store.data["history"].setdefault(card["id"], {"count": 0})
                 hist["seconds"] = round(hist.get("seconds", 0) + spent)
+            if self.conf.get(CONF_RECORD_STATS, True):
+                local = dt_util.now()
+                statlib.record_time(
+                    self.store.data, day=local.date().isoformat(), hour=local.hour, seconds=spent, card=card,
+                    player=self._active_player, story=bool(card and is_story(card)), now_iso=dt_util.utcnow().isoformat(),
+                )
+                if self._play is not None:
+                    self._play["sec"] = round(float(self._play.get("sec") or 0) + spent)
             self.store.schedule_save()
         state = self.hass.states.get(self._active_player) if self._active and self._active_player else None
         self._playing_since = now if state is not None and state.state == STATE_PLAYING else None
 
     # ---- listeners
+    async def _weekly_summary(self, now: datetime) -> None:
+        if dt_util.as_local(now).weekday() != 6 or not self.conf.get(CONF_RECORD_STATS, True):
+            return
+        await self.async_send_summary()
+
+    async def async_send_summary(self) -> dict[str, Any]:
+        """Tell what the week looked like: fires an event and uses the notification action if one is set."""
+        today = dt_util.now().date()
+        data = statlib.summary(self.store.data, today, 7)
+        top = data["cards"][0]["name"] if data["cards"] else None
+        minutes = data["week"] // 60
+        hours, mins = divmod(minutes, 60)
+        icelandic = str(self.hass.config.language or "").startswith("is")
+        spent = (f"{hours} klst. {mins} mín." if hours else f"{mins} mín.") if icelandic else (f"{hours} h {mins} min" if hours else f"{mins} min")
+        if icelandic:
+            message = f"Vordís hlustaði í {spent} þessa viku." + (f" Vinsælast: {top}." if top else "")
+        else:
+            message = f"This week the box played {spent}." + (f" Favourite: {top}." if top else "")
+        payload = {"message": message, "minutes": minutes, "favourite": top, "previous_minutes": data["prev_week"] // 60}
+        self.hass.bus.async_fire(EVENT_WEEKLY_SUMMARY, payload)
+        service = str(self.conf.get(CONF_SUMMARY_NOTIFY) or "").strip()
+        if "." in service:
+            domain, name = service.split(".", 1)
+            await self._call(domain, name, {"message": message, "title": "Vordísarvarpið"}, quiet=True)
+        return payload
+
     @callback
     def async_start(self) -> None:
         conf = self.conf
@@ -221,6 +265,8 @@ class VordisBox:
                 async_track_state_change_event(self.hass, [conf[CONF_CARD_PRESENT]], self._on_presence)
             )
         self._unsubs.append(async_track_time_interval(self.hass, self._on_tick, TICK))
+        # Sunday evening: a short summary of the week (an event, and a notification if one is set)
+        self._unsubs.append(async_track_time_change(self.hass, self._weekly_summary, hour=18, minute=0, second=0))
         last = self.store.card_for_tag(self.store.data.get("last_tag") or "")
         if last:
             self.current = {"card_id": last["id"], "name": last["name"], "tag_id": last.get("tag_id")}
@@ -500,6 +546,7 @@ class VordisBox:
                 await self._call("media_player", "media_play", {"entity_id": player})
                 self._active, self._active_player = True, player
                 self._started = time.monotonic()
+                self._log_start(card, player)
             else:
                 items = play_items(card)
                 if not items:
@@ -548,6 +595,7 @@ class VordisBox:
                 self._active, self._active_player = True, player
                 self._offset = self._last_index = index
                 self._started = time.monotonic()
+                self._log_start(card, player)
                 if card.get("id"):
                     hist = self.store.data["history"].setdefault(card["id"], {"count": 0})
                     hist["count"] = int(hist.get("count") or 0) + 1
@@ -566,6 +614,15 @@ class VordisBox:
             self._watch(player)
             self._account()
             self._updated()
+
+    def _log_start(self, card: dict[str, Any], player: str) -> None:
+        if not self.conf.get(CONF_RECORD_STATS, True) or not card.get("id"):
+            self._play = None
+            return
+        self._play = statlib.record_start(
+            self.store.data, day=dt_util.now().date().isoformat(), card=card, player=player,
+            now_iso=dt_util.utcnow().isoformat(),
+        )
 
     async def _seek(self, player: str, position: float) -> None:
         waited = 0.0

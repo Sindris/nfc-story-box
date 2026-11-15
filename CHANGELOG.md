@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.2.0
+
+New
+- **Statistics card** `custom:vordisarvarpid-tolfraedi-card`: today / this week / daily average / plays,
+  a bar chart per day (music and stories), most played cards, cards not played for 30+ days,
+  a weekday × hour heat map, stories in progress, time per speaker and the latest plays.
+- Listening is logged per day (card, hour, speaker, music or story) and kept for 90 days.
+- Sensors "Listened this week" and "Most played card"; switch "Record statistics".
+- Weekly summary on Sundays at 18:00: event `vordisarvarpid_weekly_summary`, plus a notification if an
+  action is set in the settings; also available as the action `vordisarvarpid.weekly_summary`.
+- Websocket commands `vordisarvarpid/stats` and `vordisarvarpid/reset_stats` (admin).
+
 ## 1.1.0
 
 New

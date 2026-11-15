@@ -10,6 +10,9 @@ from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect, async_dispatcher_send
 
+from homeassistant.util import dt as dt_util
+
+from . import stats as statlib
 from .const import SIGNAL_UPDATED
 from .data import entry_payload, get_entry, loaded_entries
 
@@ -18,7 +21,7 @@ ENTRY = vol.Optional("entry_id")
 
 @callback
 def async_register_websocket(hass: HomeAssistant) -> None:
-    for handler in (ws_list, ws_get, ws_save_cards, ws_update, ws_play, ws_stop, ws_subscribe, ws_reset_position):
+    for handler in (ws_list, ws_get, ws_save_cards, ws_update, ws_play, ws_stop, ws_subscribe, ws_reset_position, ws_stats, ws_reset_stats):
         websocket_api.async_register_command(hass, handler)
 
 
@@ -188,4 +191,40 @@ def ws_reset_position(hass: HomeAssistant, connection: websocket_api.ActiveConne
     store.data["positions"].pop(msg["card_id"], None)
     store.data["series_next"].pop(msg["card_id"], None)
     store.schedule_save()
+    connection.send_result(msg["id"])
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): "vordisarvarpid/stats", ENTRY: str, vol.Optional("span", default=30): vol.All(int, vol.Range(min=7, max=90))}
+)
+@callback
+def ws_stats(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """The numbers for the statistics card."""
+    entry = _guard(connection, msg, lambda: get_entry(hass, msg.get("entry_id")))
+    if entry is None:
+        return
+    box = entry.runtime_data.box
+    result = statlib.summary(entry.runtime_data.store.snapshot(), dt_util.now().date(), msg["span"])
+    result.update({
+        "recording": bool(box.conf.get("record_stats", True)),
+        "listened_today": box.listened_today,
+        "daily_limit": box.daily_limit,
+        "current": box.current,
+        "is_admin": connection.user.is_admin,
+    })
+    connection.send_result(msg["id"], result)
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({vol.Required("type"): "vordisarvarpid/reset_stats", ENTRY: str})
+@callback
+def ws_reset_stats(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    entry = _guard(connection, msg, lambda: get_entry(hass, msg.get("entry_id")))
+    if entry is None:
+        return
+    store = entry.runtime_data.store
+    statlib.reset(store.data)
+    store.data["history"] = {}
+    store.schedule_save()
+    async_dispatcher_send(hass, SIGNAL_UPDATED.format(entry.entry_id))
     connection.send_result(msg["id"])

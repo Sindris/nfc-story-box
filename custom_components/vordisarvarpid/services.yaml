@@ -45,3 +45,10 @@ set_speaker:
       selector:
         config_entry:
           integration: vordisarvarpid
+weekly_summary:
+  fields:
+    entry_id:
+      required: false
+      selector:
+        config_entry:
+          integration: vordisarvarpid

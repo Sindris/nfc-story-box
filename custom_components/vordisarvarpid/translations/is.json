@@ -53,7 +53,9 @@
           "quiet_end": "Rólegi tíminn endar",
           "quiet_max_volume": "Hámarksstyrkur á rólega tímanum (0 = óbreytt)",
           "quiet_stories_only": "Aðeins sögukort á rólega tímanum",
-          "daily_limit": "Hlustun á dag (0 = engin mörk)"
+          "daily_limit": "Hlustun á dag (0 = engin mörk)",
+          "record_stats": "Skrá hlustunartölfræði",
+          "summary_notify": "Vikuyfirlit: tilkynningaþjónusta (t.d. notify.mobile_app_siminn)"
         }
       }
     }
@@ -65,6 +67,12 @@
       },
       "listened_today": {
         "name": "Hlustað í dag"
+      },
+      "listened_week": {
+        "name": "Hlustað þessa viku"
+      },
+      "most_played": {
+        "name": "Vinsælasta kortið"
       }
     },
     "number": {
@@ -75,6 +83,9 @@
     "switch": {
       "pause_on_remove": {
         "name": "Gera hlé þegar kort er tekið af"
+      },
+      "record_stats": {
+        "name": "Skrá tölfræði"
       }
     }
   },
@@ -128,6 +139,16 @@
         "entry_id": {
           "name": "Tæki",
           "description": "Aðeins ef tækin eru fleiri en eitt."
+        }
+      }
+    },
+    "weekly_summary": {
+      "name": "Vikuyfirlit",
+      "description": "Sendir yfirlit yfir vikuna núna.",
+      "fields": {
+        "entry_id": {
+          "name": "Spilari",
+          "description": "Aðeins nauðsynlegt með fleiri en einn spilara."
         }
       }
     }

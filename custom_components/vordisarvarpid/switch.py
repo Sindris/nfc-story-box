@@ -9,13 +9,16 @@ from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from .const import CONF_PAUSE_ON_REMOVE
+from .const import CONF_PAUSE_ON_REMOVE, CONF_RECORD_STATS
 from .data import VordisConfigEntry
 from .entity import VordisEntity
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: VordisConfigEntry, add: AddConfigEntryEntitiesCallback) -> None:
-    add([OptionSwitch(entry, CONF_PAUSE_ON_REMOVE, "mdi:pause-circle-outline", default=True)])
+    add([
+        OptionSwitch(entry, CONF_PAUSE_ON_REMOVE, "mdi:pause-circle-outline", default=True),
+        OptionSwitch(entry, CONF_RECORD_STATS, "mdi:chart-bar", default=True),
+    ])
 
 
 class OptionSwitch(VordisEntity, SwitchEntity):

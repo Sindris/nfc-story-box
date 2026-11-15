@@ -27,7 +27,9 @@ from .const import (
     CONF_QUIET_MAX_VOLUME,
     CONF_QUIET_START,
     CONF_QUIET_STORIES_ONLY,
+    CONF_RECORD_STATS,
     CONF_RESUME_SAME_CARD,
+    CONF_SUMMARY_NOTIFY,
     DOMAIN,
     FRONTEND_URL,
     LOADER_FILE,
@@ -44,7 +46,7 @@ PLATFORMS = [Platform.NUMBER, Platform.SENSOR, Platform.SWITCH]
 # Options the box reads live; changing only these needs no reload.
 LIVE_OPTIONS = {
     CONF_PAUSE_ON_REMOVE, CONF_RESUME_SAME_CARD, CONF_QUIET_START, CONF_QUIET_END,
-    CONF_QUIET_MAX_VOLUME, CONF_QUIET_STORIES_ONLY, CONF_DAILY_LIMIT,
+    CONF_QUIET_MAX_VOLUME, CONF_QUIET_STORIES_ONLY, CONF_DAILY_LIMIT, CONF_RECORD_STATS, CONF_SUMMARY_NOTIFY,
 }
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
@@ -101,6 +103,12 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             vol.Required("minutes"): vol.All(vol.Coerce(int), vol.Range(min=0, max=240)),
             vol.Optional("entry_id"): cv.string,
         }),
+    )
+    async def weekly_summary(call: ServiceCall) -> None:
+        await get_entry(hass, call.data.get("entry_id")).runtime_data.box.async_send_summary()
+
+    hass.services.async_register(
+        DOMAIN, "weekly_summary", weekly_summary, schema=vol.Schema({vol.Optional("entry_id"): cv.string}),
     )
     hass.services.async_register(
         DOMAIN, "set_speaker", set_speaker,
