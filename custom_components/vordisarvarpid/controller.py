@@ -118,13 +118,32 @@ class VordisBox:
         """The speaker the box is using now: where it last started something, else the default."""
         if self._active and self._active_player:
             return self._active_player
-        return self.default_player
+        return self._resolve(self.default_player)
 
     def _target(self, card: dict[str, Any]) -> str:
         own = card.get("player")
         if own and self.hass.states.get(own) is not None:
-            return own
-        return self.default_player
+            return self._resolve(own)
+        return self._resolve(self.default_player)
+
+    def _resolve(self, player: str) -> str:
+        """The speaker that really plays: the group, when this speaker is part of a group that is switched on.
+
+        Music Assistant plays on the whole group then, and the speaker's own state stays idle.
+        """
+        state = self.hass.states.get(player)
+        queue = state.attributes.get("active_queue") if state is not None else None
+        if not queue:
+            return player
+        for other in self.hass.states.async_all("media_player"):
+            if (
+                other.entity_id != player
+                and other.state not in (STATE_OFF, STATE_UNAVAILABLE, STATE_UNKNOWN)
+                and other.attributes.get("active_queue") == queue
+                and player in (other.attributes.get("group_members") or [])
+            ):
+                return other.entity_id
+        return player
 
     @property
     def quiet(self) -> bool:

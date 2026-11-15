@@ -517,3 +517,24 @@ async def test_diagnostics(hass, reader, calls):
     diag = await async_get_config_entry_diagnostics(hass, entry)
     assert len(diag["cards"]) == 2 and diag["cards"][1]["items"] == 3
     assert "tag_id" not in str(diag["cards"]) and "Lína" not in str(diag)
+
+
+async def test_speaker_in_a_group_that_is_on(hass, reader, calls):
+    """Music Assistant plays on the whole group then; the box follows the group, so lifting still pauses."""
+    entry = await _setup(hass, reader)
+    group = "media_player.everyone"
+    hass.states.async_set(PLAYER, "idle", {"volume_level": 0.5, "active_queue": "g1", "group_members": []})
+    hass.states.async_set(group, "idle", {"volume_level": 0.5, "active_queue": "g1", "group_members": [PLAYER, "media_player.x"]})
+    await _scan(hass, reader, "89-4A-71-E6")
+    assert calls["ma_play"][-1].data["entity_id"] == group
+    hass.states.async_set("binary_sensor.vordis_card", "on")
+    hass.states.async_set(group, "playing", {"volume_level": 0.5, "active_queue": "g1", "group_members": [PLAYER, "media_player.x"]})
+    await hass.async_block_till_done()
+    hass.states.async_set("binary_sensor.vordis_card", "off")
+    await hass.async_block_till_done()
+    assert calls["pause"][-1].data["entity_id"] == group
+    # the group is switched off again: back to the speaker itself
+    hass.states.async_set(group, "off", {"active_queue": "g1", "group_members": [PLAYER, "media_player.x"]})
+    hass.states.async_set(PLAYER, "idle", {"volume_level": 0.5, "active_queue": "own"})
+    await _scan(hass, reader, "AA-BB")
+    assert calls["ma_play"][-1].data["entity_id"] == PLAYER

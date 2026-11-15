@@ -21,6 +21,8 @@ Changed
 - The card page is only downloaded on dashboards that show it.
 - Changing labels and print settings, and playing unsaved cards, needs an administrator.
 - The card dialog no longer jumps when a message appears.
+- When the speaker is part of a Music Assistant group that is switched on, the box follows the group
+  (pausing, limits and remembered places work there too).
 
 ## 1.0.0
 
