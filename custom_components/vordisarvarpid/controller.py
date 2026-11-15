@@ -272,11 +272,15 @@ class VordisBox:
         top = data["cards"][0]["name"] if data["cards"] else None
         minutes = data["week"] // 60
         hours, mins = divmod(minutes, 60)
-        icelandic = str(self.hass.config.language or "").startswith("is")
-        spent = (f"{hours} klst. {mins} mín." if hours else f"{mins} mín.") if icelandic else (f"{hours} h {mins} min" if hours else f"{mins} min")
-        if icelandic:
+        language = str(self.hass.config.language or "").lower()
+        if language.startswith("is"):
+            spent = f"{hours} klst. {mins} mín." if hours else f"{mins} mín."
             message = f"Vordís hlustaði í {spent} þessa viku." + (f" Vinsælast: {top}." if top else "")
+        elif language.startswith("sv"):
+            spent = f"{hours} tim {mins} min" if hours else f"{mins} min"
+            message = f"Vordís har lyssnat i {spent} den här veckan." + (f" Mest spelat: {top}." if top else "")
         else:
+            spent = f"{hours} h {mins} min" if hours else f"{mins} min"
             message = f"This week the box played {spent}." + (f" Favourite: {top}." if top else "")
         payload = {"message": message, "minutes": minutes, "favourite": top, "previous_minutes": data["prev_week"] // 60}
         self.hass.bus.async_fire(EVENT_WEEKLY_SUMMARY, payload)

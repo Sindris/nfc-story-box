@@ -1,0 +1,231 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Vordísarvarpið",
+        "description": "En automation från blueprinten ”Tónaval – NFC spilari” hittades.",
+        "menu_options": {
+          "import_blueprint": "Flytta över den: kort, högtalare och inställningar",
+          "manual": "Ställ in för hand"
+        }
+      },
+      "import_blueprint": {
+        "title": "Flytta från blueprinten",
+        "description": "Flyttar {cards} kort och alla inställningar från ”{automation}”. Därefter spelar integrationen korten; stäng av den gamla automationen så att de inte spelas två gånger.",
+        "data": {
+          "disable_automation": "Stäng av den gamla automationen"
+        }
+      },
+      "manual": {
+        "title": "Vordísarvarpið",
+        "data": {
+          "reader_device": "NFC-läsare",
+          "player": "Högtalare (Music Assistant-spelare)",
+          "button_event": "Knappar (event-entitet)",
+          "card_present": "Kort på läsaren (binary sensor)",
+          "start_volume": "Startvolym (0 = ändra inte)",
+          "volume_step": "Volymsteg",
+          "pause_on_remove": "Pausa när kortet lyfts bort",
+          "resume_same_card": "Fortsätt där det slutade när samma kort läggs på igen",
+          "sound_service": "Ljudåtgärd på lådan (t.ex. esphome.nfc_reader_play_sound)",
+          "only_speaker": "Spela bara på den här högtalaren"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Den här lådan är redan inställd.",
+      "import_incomplete": "Automationen har ingen läsare eller högtalare vald."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Inställningar för Vordísarvarpið",
+        "description": "Ändringarna gäller direkt när du sparar. Kort, historik och statistik behålls.",
+        "sections": {
+          "speaker": {
+            "name": "Högtalare och läsare",
+            "description": "Var korten spelas och vilka delar av lådan som används.",
+            "data": {
+              "player": "Högtalare (Music Assistant-spelare)",
+              "only_speaker": "Spela bara på den här högtalaren",
+              "button_event": "Knappar (event-entitet)",
+              "card_present": "Kort på läsaren (binary sensor)",
+              "sound_service": "Ljudåtgärd på lådan"
+            },
+            "data_description": {
+              "player": "Korten spelas här. Bara Music Assistant-spelare visas.",
+              "only_speaker": "Om högtalaren ingår i en Music Assistant-grupp som är påslagen spelar Music Assistant på hela gruppen. Slå på det här för att först stänga av gruppen, så att bara den här högtalaren spelar.",
+              "button_event": "Lådans knappar (föregående, nästa, volym). Lämna tomt om den inte har några.",
+              "card_present": "Talar om för lådan när ett kort lyfts bort så att den kan pausa. Lämna tomt om den aldrig ska pausa när kortet lyfts.",
+              "sound_service": "Pipljudet när ett kort läggs på (t.ex. esphome.nfc_reader_play_sound). Hittas automatiskt om fältet är tomt."
+            }
+          },
+          "playback": {
+            "name": "Uppspelning",
+            "description": "Volym och vad som händer när ett kort lyfts bort.",
+            "data": {
+              "start_volume": "Startvolym",
+              "volume_step": "Volymsteg",
+              "pause_on_remove": "Pausa när kortet lyfts bort",
+              "resume_same_card": "Fortsätt där det slutade"
+            },
+            "data_description": {
+              "start_volume": "Volymen som ett nytt kort börjar på. 0 lämnar högtalarens volym som den är.",
+              "volume_step": "Hur mycket volymknapparna ändrar volymen vid varje tryck.",
+              "pause_on_remove": "Pausar när kortet tas bort från läsaren.",
+              "resume_same_card": "När samma kort läggs på igen fortsätter det där det slutade i stället för att börja om."
+            }
+          },
+          "limits": {
+            "name": "Tyst tid och gränser",
+            "description": "Håll lådan lugn på natten och begränsa lyssningstiden.",
+            "data": {
+              "quiet_start": "Tyst tid börjar",
+              "quiet_end": "Tyst tid slutar",
+              "quiet_max_volume": "Högsta volym under tyst tid",
+              "quiet_stories_only": "Bara sagokort under tyst tid",
+              "daily_limit": "Lyssnande per dag"
+            },
+            "data_description": {
+              "quiet_start": "Ange både start och slut, eller lämna båda tomma.",
+              "quiet_end": "Kan vara efter midnatt (t.ex. 22:00 till 07:00).",
+              "quiet_max_volume": "Volymen hålls på eller under det här under tyst tid. 0 betyder ingen ändring.",
+              "quiet_stories_only": "Musikkort spelas inte under tyst tid, men sagokort gör det.",
+              "daily_limit": "Minuter av lyssnande per dag. 0 betyder ingen gräns."
+            }
+          },
+          "stats": {
+            "name": "Statistik",
+            "description": "Lyssningsstatistik och veckosammanfattning.",
+            "data": {
+              "record_stats": "Registrera lyssningsstatistik",
+              "summary_notify": "Veckosammanfattning: skicka till"
+            },
+            "data_description": {
+              "record_stats": "För logg över vad som spelats och när (90 dagar). Den stannar kvar i Home Assistant.",
+              "summary_notify": "Välj de telefoner eller surfplattor som får sammanfattningen på söndagar kl. 18:00. Listan visar aviseringsåtgärderna som finns i Home Assistant; välj flera för att skicka till flera enheter. Lämna tomt för inget meddelande."
+            }
+          }
+        }
+      }
+    },
+    "error": {
+      "invalid_service": "En åtgärd ser ut som domän.namn, till exempel notify.mobile_app_telefon.",
+      "unknown_notify": "Den aviseringsåtgärden finns inte i Home Assistant.",
+      "quiet_incomplete": "Tyst tid behöver både en start och ett slut.",
+      "quiet_same": "Tyst tid börjar och slutar vid samma tidpunkt."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "current_card": {
+        "name": "Kort som spelas"
+      },
+      "listened_today": {
+        "name": "Lyssnat idag"
+      },
+      "listened_week": {
+        "name": "Lyssnat den här veckan"
+      },
+      "most_played": {
+        "name": "Mest spelade kort"
+      }
+    },
+    "number": {
+      "max_volume": {
+        "name": "Maxvolym"
+      }
+    },
+    "switch": {
+      "pause_on_remove": {
+        "name": "Pausa när kortet lyfts bort"
+      },
+      "record_stats": {
+        "name": "Registrera statistik"
+      }
+    }
+  },
+  "services": {
+    "play_card": {
+      "name": "Spela kort",
+      "description": "Spelar ett kort som om det hade lagts på lådan.",
+      "fields": {
+        "card": {
+          "name": "Kort",
+          "description": "Kortets namn eller NFC-tagg-id."
+        },
+        "entry_id": {
+          "name": "Låda",
+          "description": "Behövs bara med mer än en låda."
+        }
+      }
+    },
+    "stop": {
+      "name": "Pausa",
+      "description": "Pausar lådans högtalare.",
+      "fields": {
+        "entry_id": {
+          "name": "Låda",
+          "description": "Behövs bara med mer än en låda."
+        }
+      }
+    },
+    "sleep_timer": {
+      "name": "Insomningstimer",
+      "description": "Pausar lådans högtalare efter en stund.",
+      "fields": {
+        "minutes": {
+          "name": "Minuter",
+          "description": "0 avbryter timern."
+        },
+        "entry_id": {
+          "name": "Låda",
+          "description": "Behövs bara med mer än en låda."
+        }
+      }
+    },
+    "set_speaker": {
+      "name": "Välj högtalare",
+      "description": "Spelar på en annan högtalare från och med nu och flyttar det som spelas dit.",
+      "fields": {
+        "player": {
+          "name": "Högtalare",
+          "description": "Lämna tomt för att gå tillbaka till högtalaren i inställningarna."
+        },
+        "entry_id": {
+          "name": "Låda",
+          "description": "Behövs bara med mer än en låda."
+        }
+      }
+    },
+    "weekly_summary": {
+      "name": "Veckosammanfattning",
+      "description": "Skickar veckans sammanfattning nu (den skickas också på söndagar kl. 18:00).",
+      "fields": {
+        "entry_id": {
+          "name": "Låda",
+          "description": "Behövs bara med mer än en låda."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "not_set_up": {
+      "message": "Vordísarvarpið är inte inställt."
+    },
+    "no_card": {
+      "message": "Inget kort heter ”{card}”."
+    }
+  },
+  "issues": {
+    "speaker_unavailable": {
+      "title": "Vordísarvarpið når inte sin högtalare",
+      "description": "Ett kort lades på lådan, men högtalaren `{speaker}` saknas eller är otillgänglig, så ingenting spelades. Kontrollera att högtalaren är påslagen, eller välj en annan Music Assistant-spelare i integrationens inställningar."
+    },
+    "no_music_assistant": {
+      "title": "Vordísarvarpið behöver Music Assistant",
+      "description": "Korten spelas via Music Assistant, men den integrationen är inte inställd. Lägg till integrationen Music Assistant och ladda sedan om Vordísarvarpið."
+    }
+  }
+}

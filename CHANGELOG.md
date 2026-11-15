@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.0
+
+Added
+- Swedish: the integration (settings, entities, services, messages) and both cards are now available in
+  Icelandic, English and Swedish. The language follows your Home Assistant profile language.
+- The weekly summary message is written in the Home Assistant language (Icelandic, Swedish, otherwise English).
+
 ## 1.2.6
 
 Improved

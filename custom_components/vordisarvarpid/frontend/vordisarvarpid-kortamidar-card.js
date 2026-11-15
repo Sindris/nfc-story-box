@@ -9,6 +9,10 @@
 //   style: big | classic                                    (default style, user can change it)
 //   return_text: Ef þú finnur mig: skilaðu mér til Vordísar ♥  (bottom line on the back labels)
 
+// Words and sentences in English and Swedish (the page itself is written in Icelandic).
+const _self = new URL(import.meta.url);
+const { tr, trHtml, T, setLang, lang, locale, pl } = await import(new URL("./vordisarvarpid-i18n.js" + _self.search, _self).href);
+
 const CAT = {
   music: { bg: "#E8407F", chip: "Tónlist" },
   story: { bg: "#2EC4B6", chip: "Saga" },
@@ -306,7 +310,7 @@ function artSize(ctx, title, avail, mm, maxS, minS, minFont = 3.8) {
   return Math.max(minS, Math.min(maxS, avail - longest));
 }
 
-const countText = (n) => `${n} ${n % 10 === 1 && n % 100 !== 11 ? "bók" : "bækur"}`;
+const countText = (n) => `${n} ${pl(n, "bók", "bækur")}`;
 
 // Returns a canvas of the label incl. bleed. opts: {style, color: 'cover'|'type', brand, brandText}
 // extras = more cover images for a series (drawn behind the main cover in the classic style).
@@ -440,9 +444,9 @@ function drawCardSquare(item, img, opts, px, withBleed = true, extras = []) {
       ctx.fillStyle = ghost ? "#fff" : "#17284A";
       ctx.fillText(txt, cx + 1.5 * mm + is + 1 * mm, cy + ch / 2 + 1.05 * mm); cx += cw + 1 * mm;
     };
-    chip(cat.chip, item.kind, false);
+    chip(tr(cat.chip), item.kind, false);
     const count = item.count || 0;
-    if (item.series) chip(count > 1 ? `${count} ${count % 10 === 1 && count % 100 !== 11 ? "bók" : "bækur"}` : "Sería", "series", true);
+    if (item.series) chip(count > 1 ? `${count} ${pl(count, "bók", "bækur")}` : tr("Sería"), "series", true);
     if (item.series && count > 1 && opts.dots !== false) {
       const r = 0.85 * mm, step = 2.7 * mm, maxDots = Math.max(3, Math.floor((maxW + step - 7 * mm) / step));
       const shown = count > maxDots ? maxDots - 1 : count;
@@ -563,7 +567,7 @@ function drawBackSquare(item, opts, px, withBleed = true, img = null) {
       const [x, y] = at(k); ctx.fillText(s, x, y);
     }
     if (names.length > shown) {
-      const [x, y] = at(shown); ctx.fillStyle = main; ctx.fillText(`+ ${names.length - shown} í viðbót`, x, y);
+      const [x, y] = at(shown); ctx.fillStyle = main; ctx.fillText(T("+ %1 í viðbót", names.length - shown), x, y);
     }
   } else {
     // the cover small on the left, so the back matches its front; how to use it on the right
@@ -573,7 +577,7 @@ function drawBackSquare(item, opts, px, withBleed = true, img = null) {
     } else drawIcon(ctx, item.kind, pad + S / 2, sy + S / 2, S * 0.7, "rgba(23,40,74,.15)");
     ctx.fillStyle = "#17284A";
     const tx = pad + S + 3.5 * mm, tw = W - tx - pad;
-    const hint = item.kind === "story" ? "Leggðu mig á Vordísarvarpið og hlustaðu á söguna" : "Leggðu mig á Vordísarvarpið og hlustaðu";
+    const hint = tr(item.kind === "story" ? "Leggðu mig á Vordísarvarpið og hlustaðu á söguna" : "Leggðu mig á Vordísarvarpið og hlustaðu");
     const h = fitTitle(ctx, hint, tw, mm, 4, 2.8, 4), lh = h.fs * 1.08 * mm;
     let y = sy + S / 2 - ((h.lines.length - 1) * lh) / 2 + h.fs * 0.3 * mm;
     for (const l of h.lines) { ctx.fillText(l, tx, y); y += lh; }
@@ -700,7 +704,9 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
   }
 
   set hass(hass) {
+    const langChanged = setLang(hass);
     this._hass = hass;
+    if (langChanged && this._loaded) this._render();
     IMG_FETCH = (url) => hass.fetchWithAuth(url);
     if (!this._loaded && !this._loading) this._load();
     if (this.isConnected) this._subscribe();
@@ -727,7 +733,7 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
   getCardSize() { return 8; }
   static getStubConfig() { return {}; }
 
-  _drawOpts() { return { ...this._opts, brandText: this._config.brand, returnText: this._config.return_text || RETURN_TEXT }; }
+  _drawOpts() { return { ...this._opts, brandText: this._config.brand, returnText: this._config.return_text || tr(RETURN_TEXT) }; }
 
   // print settings are kept in Home Assistant (shared by every device that opens this page)
   _saveOpts() {
@@ -903,7 +909,7 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
       it.copies = lab.copies || 1;
       it.include = lab.include !== false;
       const mkey = [mediaOf(c), c.more_media || "", c.media_type || ""].join("|");
-      const sig = `${mkey}|${it.title}|${it.kind}|${lab.image || ""}`;
+      const sig = `${lang()}|${mkey}|${it.title}|${it.kind}|${lab.image || ""}`;
       if (it._sig !== sig) {
         it._sig = sig;
         if (it._mkey !== mkey || it._img !== (lab.image || "")) { it._mkey = mkey; it._img = lab.image || ""; this._loadArt(it); }
@@ -1184,7 +1190,7 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
     return Object.keys((this._hass && this._hass.states) || {})
       .filter((id) => id.startsWith("media_player.") && ents[id] && ents[id].platform === "music_assistant" && this._hass.states[id].state !== "unavailable")
       .map((id) => [id, this._speakerName(id)])
-      .sort((a, b) => a[1].localeCompare(b[1], "is"));
+      .sort((a, b) => a[1].localeCompare(b[1], locale()));
   }
 
   // ---------- linking the NFC cards one after another ----------
@@ -1581,7 +1587,7 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
         </label>`).join("")}</div>
       <div class="sf-bar end">
         ${mediaOf(this._editCards()[i]) ? `<button class="sec" data-seradd="${i}" ${n ? "" : "disabled"}>Bæta aftan við núverandi</button>` : ""}
-        <button data-seruse="${i}" ${n ? "" : "disabled"}>Setja ${n} ${n % 10 === 1 && n % 100 !== 11 ? "bók" : "bækur"} á kortið</button>
+        <button data-seruse="${i}" ${n ? "" : "disabled"}>Setja ${n} ${pl(n, "bók", "bækur")} á kortið</button>
       </div></div>`;
   }
 
@@ -1672,7 +1678,7 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
     const n = entries.length;
     return `<div class="sheet">
       <div class="sheet-h"><b>Á blaðinu</b>
-        <span class="msg">${n} ${n % 10 === 1 && n % 100 !== 11 ? "miði" : "miðar"} á ${pages} ${pages === 1 ? "blað" : "blöð"}</span>
+        <span class="msg">${T("%1 %2 á %3 %4", n, pl(n, "miði", "miðar"), pages, pl(pages, "blað", "blöð"))}</span>
         <span class="flex"></span>
         ${herma ? `<span class="stepper">Byrja á miða
           <button class="sec ic" id="stDown" ${start <= 1 ? "disabled" : ""}>−</button><b>${start}</b>
@@ -1907,7 +1913,7 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
       `<button data-opt="${opt}" data-v="${k}" class="${o[opt] === k ? "on" : ""}">${name}</button>`).join("")}</span>`;
     const nxt = this._next ? ` <button class="sec sm" id="useNext">Næst: byrja á miða ${this._next}</button>` : "";
     return `<div class="ovl" id="ovlP"><div class="dlg wide" role="dialog" aria-label="Prenta miða" data-keep="dlgp">
-      <div class="dlg-h"><div class="kt"><b>Prenta miða</b><span class="msg">${sel} kort valin · ${n} ${n % 10 === 1 && n % 100 !== 11 ? "miði" : "miðar"}${o.back ? " með bakhliðum" : ""}</span></div>
+      <div class="dlg-h"><div class="kt"><b>Prenta miða</b><span class="msg">${sel} kort valin · ${n} ${pl(n, "miði", "miðar")}${o.back ? " með bakhliðum" : ""}</span></div>
         <button class="x" id="prClose" aria-label="Loka">✕</button></div>
       <div class="pbody"><div class="kf">
         <div class="grp sty"><span class="lbl">Útlit</span><div class="stylepick">${Object.entries(STYLES).map(([k, s2]) =>
@@ -2094,7 +2100,7 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
     q("[data-series]").forEach((el) => el.onclick = () => { const [i, k] = el.dataset.series.split(":").map(Number); this._pick(i, this._find.results[k], true); });
     q("[data-del]").forEach((el) => el.onclick = () => {
       const i = +el.dataset.del, c = this._editCards()[i];
-      if (!confirm(`Eyða „${c.name || "nýju korti"}“? (Vistast þegar þú ýtir á Vista breytingar)`)) return;
+      if (!confirm(trHtml(`Eyða „${c.name || "nýju korti"}“? (Vistast þegar þú ýtir á Vista breytingar)`))) return;
       this._editCards().splice(i, 1); this._panel = -1; this._dirty = true; this._render();
     });
   }
@@ -2393,7 +2399,7 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
           .top .ttl { flex-basis:100%; }
         }
       </style>
-      <ha-card>${this._renderMain()}</ha-card>`;
+      <ha-card>${trHtml(this._renderMain())}</ha-card>`;
     for (const el of root.querySelectorAll("[data-keep]")) if (keep[el.dataset.keep] !== undefined) el.scrollTop = keep[el.dataset.keep];
     this._bind();
   }

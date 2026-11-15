@@ -8,10 +8,13 @@
 //   span: 30                      (7, 30 or 90 days; the page can change it)
 //   title: Tölfræði               (optional)
 
+const _self = new URL(import.meta.url);
+const { trHtml, setLang, locale, dayNames, monthNames } = await import(new URL("./vordisarvarpid-i18n.js" + _self.search, _self).href);
+
 const MUSIC = "#E8407F";
 const STORY = "#2EC4B6";
-const DAYS = ["Mán", "Þri", "Mið", "Fim", "Fös", "Lau", "Sun"];
-const MONTHS = ["jan.", "feb.", "mar.", "apr.", "maí", "jún.", "júl.", "ágú.", "sep.", "okt.", "nóv.", "des."];
+let DAYS = dayNames();      // Monday first
+let MONTHS = monthNames();
 const QUIET_DAYS = 30;
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -27,7 +30,7 @@ const short = (sec) => { const m = Math.round((sec || 0) / 60); return m >= 60 ?
 function when(iso) {
   if (!iso) return "";
   const d = new Date(iso), now = new Date();
-  const hm = d.toLocaleTimeString("is-IS", { hour: "2-digit", minute: "2-digit", hour12: false });
+  const hm = d.toLocaleTimeString(locale(), { hour: "2-digit", minute: "2-digit", hour12: false });
   const day = Math.round((new Date(now.getFullYear(), now.getMonth(), now.getDate()) - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 864e5);
   if (day === 0) return `í dag ${hm}`;
   if (day === 1) return `í gær ${hm}`;
@@ -100,7 +103,9 @@ class VordisarvarpidTolfraediCard extends HTMLElement {
 
   set hass(hass) {
     const first = !this._hass;
+    const langChanged = setLang(hass);
     this._hass = hass;
+    if (langChanged && !first) this._render();
     if (first) this._load();
   }
 
@@ -186,6 +191,7 @@ class VordisarvarpidTolfraediCard extends HTMLElement {
   }
 
   _render() {
+    DAYS = dayNames(); MONTHS = monthNames();
     const d = this._data, root = this.shadowRoot;
     const title = (this._config && this._config.title) || "Tölfræði";
     const seg = [7, 30, 90].map((n) => `<button data-span="${n}" aria-pressed="${n === this._span}">${n} d.</button>`).join("");
@@ -193,7 +199,7 @@ class VordisarvarpidTolfraediCard extends HTMLElement {
     if (this._error && !d) body = `<div class="err">${esc(this._error)}</div>`;
     else if (!d) body = `<div class="empty">Sæki tölfræði …</div>`;
     else body = this._body(d);
-    root.innerHTML = `<style>${CSS}</style><ha-card><div class="in"><div class="head"><h2>${esc(title)}</h2><div class="seg" role="group" aria-label="Tímabil">${seg}</div></div>${this._error && d ? `<div class="err">${esc(this._error)}</div>` : ""}${body}</div></ha-card>`;
+    root.innerHTML = trHtml(`<style>${CSS}</style><ha-card><div class="in"><div class="head"><h2>${esc(title)}</h2><div class="seg" role="group" aria-label="Tímabil">${seg}</div></div>${this._error && d ? `<div class="err">${esc(this._error)}</div>` : ""}${body}</div></ha-card>`);
     root.querySelectorAll("[data-span]").forEach((b) => b.addEventListener("click", () => { this._span = +b.dataset.span; this._load(); }));
     const reset = root.querySelector("[data-reset]");
     if (reset) reset.addEventListener("click", async () => {

@@ -701,3 +701,17 @@ async def test_weekly_summary_to_several_devices(hass, reader, calls):
     await hass.services.async_call(DOMAIN, "weekly_summary", {}, blocking=True)
     await hass.async_block_till_done()
     assert phone and tablet
+
+
+@pytest.mark.parametrize(
+    ("language", "expected"),
+    [("is", "Vordís hlustaði"), ("sv", "Vordís har lyssnat"), ("en", "This week the box played")],
+)
+async def test_weekly_summary_language(hass, reader, calls, language, expected):
+    hass.config.language = language
+    entry = await _setup(hass, reader, summary_notify=["notify.phone"])
+    phone = async_mock_service(hass, "notify", "phone")
+    await _listen(hass, reader, entry.runtime_data.box, 600)
+    await hass.services.async_call(DOMAIN, "weekly_summary", {}, blocking=True)
+    await hass.async_block_till_done()
+    assert expected in phone[0].data["message"]

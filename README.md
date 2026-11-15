@@ -5,7 +5,7 @@ lay a card on the box and it plays a playlist, an album or a whole series of aud
 through [Music Assistant](https://music-assistant.io/). It also gives you one page for
 managing the cards and printing labels for them with their cover art.
 
-The page is in Icelandic.
+The integration and cards are available in Icelandic, English and Swedish (they follow your Home Assistant language).
 
 ## What it does
 
@@ -21,7 +21,7 @@ The page is in Icelandic.
   or surprise (plays a random card).
 - **Bedtime rules** (integration settings): quiet hours with a lower maximum volume, optionally story
   cards only; a daily listening limit; a sleep timer.
-- **Statistics** (`custom:vordisarvarpid-tolfraedi-card`, Icelandic): listening today and this week,
+- **Statistics** (`custom:vordisarvarpid-tolfraedi-card`): listening today and this week,
   a bar per day (music / stories), the most played cards, cards not played for 30+ days, when the box is
   used (weekday × hour), stories in progress, time per speaker and the latest plays. Kept for 90 days in
   Home Assistant only; can be switched off or cleared. A summary of the week goes out on Sundays at 18:00.
