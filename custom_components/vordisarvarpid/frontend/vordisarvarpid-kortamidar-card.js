@@ -12,6 +12,7 @@
 const CAT = {
   music: { bg: "#E8407F", chip: "Tónlist" },
   story: { bg: "#2EC4B6", chip: "Saga" },
+  control: { bg: "#6C5CE7", chip: "Stýrikort" },
 };
 
 // Label styles. Sizes in mm. bleed = extra print outside the cut line.
@@ -49,6 +50,7 @@ function geom(opts) {
 }
 
 const ICONS = {  // 24 x 24 paths
+  control: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 5v5.4l3.6 2.2-1 1.7L11 13.5V7h2z",
   music: "M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z",
   story: "M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z",
   series: "M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2zm-4 4H9v-2h6v2zm4-8H9V5h10v2z",
@@ -70,7 +72,23 @@ const PREVIEW_PX = 140 / 25.4;
 const OPTS_KEY = "vordis-kortamidar-opts";
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const kindOf = (card) => (["audiobook", "podcast"].includes(card.media_type) ? "story" : "music");
+const isStory = (card) => ["audiobook", "podcast"].includes(card.media_type);
+const kindOf = (card) => (card.action ? "control" : isStory(card) ? "story" : "music");
+// Control cards do something instead of playing.
+const ACTIONS = [
+  ["", "Spilar tónlist eða sögu"],
+  ["stop", "Stöðvar spilun"],
+  ["sleep", "Svefntími: stöðvar eftir smástund"],
+  ["speaker", "Skiptir um hátalara"],
+  ["surprise", "Óvænt: spilar eitthvert kort"],
+];
+const ACTION_TEXT = {
+  stop: "Þegar kortið er lagt á tækið stöðvast það sem er í spilun.",
+  sleep: "Þegar kortið er lagt á tækið heldur spilunin áfram í þennan tíma og stöðvast svo.",
+  speaker: "Þegar kortið er lagt á tækið færist spilunin á þennan hátalara, og næstu kort spilast þar.",
+  surprise: "Þegar kortið er lagt á tækið spilast eitthvert hinna kortanna af handahófi.",
+};
+const duration = (sec) => { const m = Math.round((sec || 0) / 60); return m < 60 ? `${m} mín` : `${Math.floor(m / 60)} klst${m % 60 ? ` ${m % 60} mín` : ""}`; };
 
 // ---------- loading ----------
 
@@ -605,7 +623,7 @@ async function renderAll(entries, opts) {
 const PRINTED_KEY = "vordis-kortamidar-printed";
 const NAMES_KEY = "vordis-kortamidar-names";   // uri -> {name, image}: books outside your library (Spotify, Storytel)
 const RETURN_TEXT = "Ef þú finnur mig: skilaðu mér til Vordísar ♥";
-const GROUPS = [["music", "Tónlist"], ["story", "Sögur"]];
+const GROUPS = [["music", "Tónlist"], ["story", "Sögur"], ["control", "Stýrikort"]];
 const mediaOf = (c) => c.media_id || (c.media && c.media.media_content_id) || "";
 const moreOf = (c) => String(c.more_media || "").split("\n").map((x) => x.trim()).filter(Boolean);
 const MEDIA_TYPES = "album|playlist|audiobook|podcast|artist|track|radio";
@@ -662,7 +680,7 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
     this._config = { brand: "Vordísarvarpið", style: "big", ...config };
     this._opts = { style: this._config.style, color: "cover", brand: false, dots: true, back: false, start: 1,
       sheet: this._config.sheet || "herma5028", cal: {} };
-    this._labels = {};
+    this._history = {}; this._positions = {}; this._live = {}; this._wiz = null; this._labels = {};
     this._known = {};
     this._items = null;
     this._loading = false;
@@ -689,6 +707,7 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
     this._onKey = (e) => {
       if (e.key !== "Escape") return;
       if (this._menu) { this._menu = false; this._render(); }
+      else if (this._wiz) { this._wiz = null; this._render(); }
       else if (this._panel >= 0 || this._printOpen) { this._panel = -1; this._printOpen = false; this._render(); }
     };
     document.addEventListener("keydown", this._onKey);
@@ -813,6 +832,9 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
       this._known = st.names || {};
       this._opts = { ...this._opts, ...(st.settings || {}) };
       this._current = st.current;
+      this._history = st.history || {};
+      this._positions = st.positions || {};
+      this._live = st;
       this._lastScanTime = st.last_scan ? st.last_scan.time : null;
       if (!(st.settings || {}).migrated) this._migrate();
       this._edit = null; this._dirty = false;
@@ -1121,15 +1143,106 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
   }
 
   _onUpdate(m) {
-    const was = this._current && this._current.card_id;
+    const was = this._current && this._current.card_id, sig = this._liveSig();
     this._current = m.current;
+    this._live = { ...(this._live || {}), ...m };
     const s = m.last_scan;
     if (s && s.time && s.time !== this._lastScanTime) { this._lastScanTime = s.time; this._onScan(s); return; }
-    if (((this._current || {}).card_id) !== was) this._render();
+    // don't redraw under someone's fingers: only the list view follows the status line
+    const idle = this._panel < 0 && !this._printOpen && !this._wiz;
+    if (((this._current || {}).card_id) !== was || (idle && sig !== this._liveSig())) this._render();
+  }
+
+  _liveSig() {
+    const l = this._live || {};
+    return [l.quiet, l.sleep_until, l.speaker, Math.floor((l.listened_today || 0) / 60), l.daily_limit].join("|");
+  }
+
+  // Status of the box for the top of the page: quiet hours, sleep timer, today's listening.
+  _renderStatus() {
+    const l = this._live || {}, out = [];
+    if (l.quiet) out.push(`<span class="st-chip">🌙 rólegur tími</span>`);
+    if (l.sleep_until) { const d = new Date(l.sleep_until); out.push(`<span class="st-chip">⏲ stöðvast kl. ${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}</span>`); }
+    if (l.daily_limit) {
+      const used = Math.floor((l.listened_today || 0) / 60), lim = Math.round(l.daily_limit / 60);
+      out.push(`<span class="st-chip ${used >= lim ? "full" : ""}">🕑 ${used} / ${lim} mín í dag</span>`);
+    } else if (l.listened_today >= 60) out.push(`<span class="st-chip">🕑 ${duration(l.listened_today)} í dag</span>`);
+    const def = (this._ent || {}).player;
+    if (l.speaker && def && l.speaker !== def) out.push(`<span class="st-chip">🔊 ${esc(this._speakerName(l.speaker))}</span>`);
+    return out.join("");
+  }
+
+  _speakerName(id) { const st = this._hass && this._hass.states[id]; return (st && st.attributes.friendly_name) || id; }
+
+  // Music Assistant players, for "this card plays on…"
+  _speakers() {
+    const ents = (this._hass && this._hass.entities) || {};
+    return Object.keys((this._hass && this._hass.states) || {})
+      .filter((id) => id.startsWith("media_player.") && ents[id] && ents[id].platform === "music_assistant" && this._hass.states[id].state !== "unavailable")
+      .map((id) => [id, this._speakerName(id)])
+      .sort((a, b) => a[1].localeCompare(b[1], "is"));
+  }
+
+  // ---------- linking the NFC cards one after another ----------
+
+  _missing() {
+    const done = (this._wiz && this._wiz.done) || new Set(), skip = (this._wiz && this._wiz.skip) || new Set();
+    return this._editCards().map((c, i) => ({ c, i })).filter(({ c }) => !this._real(c.tag_id) && !done.has(c.id) && !skip.has(c.id));
+  }
+
+  _wizStart() {
+    if (this._dirty) { this._msg = "Vistaðu breytingarnar fyrst."; this._render(); return; }
+    this._wiz = { done: new Set(), skip: new Set(), msg: "", total: 0 };
+    this._wiz.total = this._missing().length;
+    this._panel = -1; this._printOpen = false; this._menu = false; this._scan = null; this._msg = "";
+    this._render();
+  }
+
+  async _wizScan(s) {
+    const w = this._wiz, tag = String(s.tag_id || "").trim(), up = tag.toUpperCase();
+    const cards = this._editCards(), next = this._missing()[0];
+    if (!tag || !next) return;
+    const other = cards.find((c) => String(c.tag_id || "").trim().toUpperCase() === up);
+    if (other) { w.msg = `Þetta kort er þegar tengt við „${other.name}“. Leggðu annað kort á.`; w.bad = true; this._render(); return; }
+    next.c.tag_id = tag;
+    try {
+      const r = await this._hass.callWS({ type: "vordisarvarpid/save_cards", entry_id: this._entryId, cards: cards.map((c) => ({ ...c })) });
+      this._saved = r.cards; this._edit = null; this._dirty = false;
+      w.done.add(next.c.id); w.msg = `✓ „${next.c.name}“ tengt við ${tag}`; w.bad = false;
+      try { await this._hass.callWS({ type: "tag/update", tag_id: tag, name: `${next.c.name} - Tag ${tag}` }); } catch (e) { /* the tag list may not have it yet */ }
+    } catch (e) { w.msg = "Gat ekki vistað: " + (e.message || e); w.bad = true; }
+    this._loadTags();
+    this._render();
+  }
+
+  _renderWizard() {
+    const w = this._wiz, left = this._missing(), next = left[0];
+    const it = next && (this._items || []).find((x) => x.card.id === next.c.id);
+    const n = w.done.size;
+    return `<div class="ovl" id="wizOvl"><div class="dlg wiz" role="dialog" aria-label="Tengja kort">
+      <div class="dlg-h"><b>Tengja kortin við NFC</b><span class="flex"></span><button class="x" id="wizClose" aria-label="Loka">✕</button></div>
+      <div class="wiz-bar"><span style="width:${w.total ? Math.round(100 * (w.total - left.length) / w.total) : 100}%"></span></div>
+      ${next ? `
+        <div class="wiz-c">
+          ${it && it.preview ? `<img src="${it.preview}" alt="">` : `<div class="ph">＋</div>`}
+          <div class="wiz-t"><span class="cap-l">Næsta kort · ${w.total - left.length + 1} af ${w.total}</span>
+            <b>${esc(next.c.name || "(nýtt kort)")}</b>
+            <span class="msg">📡 Leggðu NFC-kortið sem á að vera „${esc(next.c.name || "þetta kort")}“ á Vordísarvarpið.</span></div>
+        </div>` : `
+        <div class="wiz-c done"><div class="wiz-t"><b>${n ? `Búið! ${n} kort tengd.` : "Öll kortin eru tengd."}</b>
+          <span class="msg">${w.skip.size ? `${w.skip.size} sleppt – þau má tengja seinna.` : "Nú spila öll kortin þegar þau eru lögð á tækið."}</span></div></div>`}
+      ${w.msg ? `<div class="notice ${w.bad ? "bad" : "good"}" aria-live="polite">${esc(w.msg)}</div>` : ""}
+      <div class="dlg-f">
+        <span class="msg small">${n} tengd${w.skip.size ? ` · ${w.skip.size} sleppt` : ""}</span><span class="flex"></span>
+        ${next ? `<button class="sec" id="wizSkip">Sleppa þessu</button>` : ""}
+        <button id="wizDone">${next ? "Hætta" : "Lokið"}</button>
+      </div>
+    </div></div>`;
   }
 
   _onScan(s) {
     if (!this._loaded) return;
+    if (this._wiz) { this._wizScan(s); return; }
     const tag = String(s.tag_id || "").trim().toUpperCase();
     const cards = this._editCards(), i = cards.findIndex((c) => String(c.tag_id || "").trim().toUpperCase() === tag);
     this._printOpen = false; this._menu = false; this._find = null; this._ser = null; this._msg = "";
@@ -1151,12 +1264,13 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
   }
 
   async _play(c) {
-    if (!play_items_of(c).length) { this._msg = "Kortið spilar ekkert enn."; this._render(); return; }
+    if (!c.action && !play_items_of(c).length) { this._msg = "Kortið spilar ekkert enn."; this._render(); return; }
     try {
       await this._hass.callWS({ type: "vordisarvarpid/play", entry_id: this._entryId, card: { ...c } });
+      if (c.action) { this._msg = `✓ „${c.name || "Kortið"}“ keyrt.`; this._render(); return; }
       this._playing = c.id;
-      const p = this._input().player, name = (this._hass.states[p] && this._hass.states[p].attributes.friendly_name) || p;
-      this._msg = `▶ Spilar „${c.name || mediaOf(c)}“ á ${name}.`;
+      const p = c.player || (this._live || {}).speaker || this._input().player;
+      this._msg = `▶ Spilar „${c.name || mediaOf(c)}“ á ${this._speakerName(p)}.`;
     } catch (e) { this._msg = "Gat ekki spilað: " + (e.message || e); }
     this._render();
   }
@@ -1483,7 +1597,7 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
     const seen = {};
     cards.forEach((c, i) => {
       if (!c.name) problems.push(`Kort ${i + 1} vantar heiti`);
-      if (!c.media_id && !c.media) problems.push(`„${c.name || i + 1}“ spilar ekkert`);
+      if (!c.action && !c.media_id && !c.media) problems.push(`„${c.name || i + 1}“ spilar ekkert`);
       if (!c.tag_id) c.tag_id = this._placeholder();
       if (seen[c.tag_id]) problems.push(`„${c.name}“ og „${seen[c.tag_id]}“ nota sama kort`);
       seen[c.tag_id] = c.name;
@@ -1565,17 +1679,18 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
     const curName = cur && ((items.find((i) => i.card.id === cur) || {}).card || {}).name;
     const tile = (it, i) => {
       const pr = this._printedAt(it), real = this._real(it.card.tag_id), playing = cur === it.card.id;
-      return `<div class="tile${it.include ? " on" : ""}" data-tile="${i}" data-drag="${i}" draggable="true" tabindex="0">
+      return `<div class="tile${it.include ? " on" : ""}" data-tile="${i}" data-drag="${i}" draggable="true" tabindex="0" role="button" aria-label="${esc(it.card.name || "Nýtt kort")}${real ? "" : ", vantar NFC-kort"}${playing ? ", í spilun" : ""}">
         <div class="img" style="aspect-ratio:${st.w}/${st.h}">
           ${it.preview ? `<img src="${it.preview}" alt="" draggable="false">` : `<div class="ph">${it.card.media_id || it.card.media ? "…" : "＋"}</div>`}
-          <button class="tick" data-tick="${i}" title="${it.include ? "Prentast (smelltu til að sleppa)" : "Prentast ekki (smelltu til að velja)"}">✓</button>
+          <button class="tick" data-tick="${i}" aria-pressed="${it.include ? "true" : "false"}" aria-label="Prenta miða" title="${it.include ? "Prentast (smelltu til að sleppa)" : "Prentast ekki (smelltu til að velja)"}">✓</button>
           ${it.copies > 1 ? `<span class="copies">×${it.copies}</span>` : ""}
           ${playing ? `<span class="nowp">♪ spilar</span>` : ""}
-          <button class="tplay" data-play="${i}" title="${this._playing === it.card.id ? "Stöðva" : "Prófa á hátalara"}">${this._playing === it.card.id ? "■" : "▶"}</button>
+          <button class="tplay" data-play="${i}" aria-label="${this._playing === it.card.id ? "Stöðva" : "Prófa á hátalara"}" title="${this._playing === it.card.id ? "Stöðva" : "Prófa á hátalara"}">${this._playing === it.card.id ? "■" : "▶"}</button>
         </div>
         <div class="cap"><span class="t">${esc(it.card.name || "(nýtt kort)")}</span>
           <span class="meta">${this._tags ? `<span class="${real ? "ok" : "warn"}">${real ? "✓ tengt" : "⚠ vantar kort"}</span>` : ""}
-          ${pr ? `<span class="pr">prentað ${shortDate(pr)}</span>` : ""}</span></div>
+          ${pr ? `<span class="pr">prentað ${shortDate(pr)}</span>` : ""}
+          ${(this._history[it.card.id] || {}).count ? `<span class="pr" title="Hve oft kortið hefur verið spilað">▶ ${this._history[it.card.id].count}×</span>` : ""}</span></div>
       </div>`;
     };
     const groups = GROUPS.map(([k, label]) => {
@@ -1592,13 +1707,14 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
         <button class="sec" id="openPrint" ${n ? "" : "disabled"}>🖨 Prenta${n ? ` (${n})` : ""}</button>
         ${this._dirty ? `<button class="sec" id="undo">Afturkalla</button>
           <button id="save" ${this._saving ? "disabled" : ""}>${this._saving ? "Vista…" : "Vista breytingar"}</button>` : ""}
-        <span class="menu-w"><button class="sec ic" id="menuBtn" title="Meira">⋮</button>
+        <span class="menu-w"><button class="sec ic" id="menuBtn" title="Meira" aria-label="Meira" aria-haspopup="true" aria-expanded="${this._menu ? "true" : "false"}">⋮</button>
           ${this._menu ? `<div class="menu">
             <button id="mExport">Sækja afrit af kortunum</button>
             <button id="mImport">Hlaða inn afriti</button>
             <button id="mReload">Sækja allt aftur</button></div>` : ""}</span>
         <input type="file" id="importFile" accept="application/json,.json" hidden>
       </div>
+      <div class="st" aria-live="polite">${this._renderStatus()}</div>
       ${this._renderScan()}
       ${this._msg && this._panel < 0 ? `<div class="notice">${esc(this._msg)}${this._playing ? ` <button class="sec sm" id="stopAll">■ Stöðva</button>` : ""}
         <button class="x" id="msgX" aria-label="Loka">✕</button></div>` : ""}
@@ -1609,11 +1725,13 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
         <button class="sec sm" id="selAll">Velja allt</button>
         <button class="sec sm" id="selNone">Ekkert</button>
         <button class="sec sm" id="selNew">Bara óprentaðir</button>
+        ${this._tags && this._missing().length ? `<button class="sec sm" id="wizStart">📡 Tengja kort (${this._missing().length})</button>` : ""}
         <span class="msg">Smelltu á kort til að breyta · leggðu kort á tækið og það opnast</span>
       </div>` : ""}
       ${groups}
       ${this._panel >= 0 && items[this._panel] ? this._renderCardPanel(this._panel) : ""}
-      ${this._printOpen ? this._renderPrintPanel() : ""}`;
+      ${this._printOpen ? this._renderPrintPanel() : ""}
+      ${this._wiz ? this._renderWizard() : ""}`;
   }
 
   // ---------- one panel per card: what it plays, its NFC card, its label ----------
@@ -1634,15 +1752,15 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
           ${series ? `<span class="pill">· sería, ${countText(series + 1)}</span>` : ""}
           ${this._scanned === c.id ? `<span class="pill">· 📡 lagt á tækið</span>` : ""}</span></div>
         <span class="acts">
-          <button class="ic ${playing ? "on" : ""}" data-play="${i}" title="${playing ? "Stöðva" : "Prófa á hátalara"}">${playing ? "■" : "▶"}</button>
-          <button class="ic" data-up="${i}" title="Færa framar">↑</button>
-          <button class="ic" data-down="${i}" title="Færa aftar">↓</button>
+          <button class="ic ${playing ? "on" : ""}" data-play="${i}" aria-label="${playing ? "Stöðva" : "Prófa á hátalara"}" title="${playing ? "Stöðva" : "Prófa á hátalara"}">${playing ? "■" : "▶"}</button>
+          <button class="ic" data-up="${i}" aria-label="Færa framar" title="Færa framar">↑</button>
+          <button class="ic" data-down="${i}" aria-label="Færa aftar" title="Færa aftar">↓</button>
         </span>
         <button class="x" id="pClose" aria-label="Loka">✕</button>
       </div>
-      <div class="ptabs">${tabs.map(([k, n]) => `<button data-ptab="${k}" class="${this._ptab === k ? "on" : ""}">${n}</button>`).join("")}</div>
-      ${this._msg ? `<div class="notice">${esc(this._msg)}${this._playing ? ` <button class="sec sm" id="stopAll">■ Stöðva</button>` : ""}</div>` : ""}
+      <div class="ptabs" role="tablist">${tabs.map(([k, n]) => `<button role="tab" aria-selected="${this._ptab === k ? "true" : "false"}" data-ptab="${k}" class="${this._ptab === k ? "on" : ""}">${n}</button>`).join("")}</div>
       <div class="pbody">${body}</div>
+      ${this._msg ? `<div class="notice" aria-live="polite">${esc(this._msg)}${this._playing ? ` <button class="sec sm" id="stopAll">■ Stöðva</button>` : ""}</div>` : ""}
       <div class="dlg-f">
         ${this._dirty ? `<span class="msg small">Óvistaðar breytingar á kortum</span>` : `<span class="msg small">Miðastillingar vistast sjálfkrafa</span>`}
         <span class="flex"></span>
@@ -1655,7 +1773,26 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
   _renderTabSpilar(i, c, series) {
     const f = this._find && this._find.i === i ? this._find : null;
     const TYPES = ["playlist", "album", "audiobook", "podcast", "artist", "track", "radio"];
+    const doSel = `<label class="fld"><span>Hvað gerir kortið?</span>
+      <select data-e="action" data-i="${i}">${ACTIONS.map(([k, n]) => `<option value="${k}" ${(c.action || "") === k ? "selected" : ""}>${n}</option>`).join("")}</select></label>`;
+    const spk = (label, none) => `<label class="fld"><span>${label}</span>
+      <select data-e="player" data-i="${i}"><option value="">${none}</option>
+        ${this._speakers().map(([id, n]) => `<option value="${esc(id)}" ${c.player === id ? "selected" : ""}>${esc(n)}</option>`).join("")}
+        ${c.player && !this._speakers().some(([id]) => id === c.player) ? `<option value="${esc(c.player)}" selected>${esc(c.player)} (ótengdur)</option>` : ""}</select></label>`;
+    if (c.action) {
+      return `<div class="kf">${doSel}
+        <div class="sel"><div class="th none">${{ stop: "■", sleep: "⏲", speaker: "🔊", surprise: "🎲" }[c.action]}</div>
+          <div class="kt"><span class="cap-l">Stýrikort</span><span class="msg">${ACTION_TEXT[c.action]}</span></div></div>
+        ${c.action === "sleep" ? `<label class="fld"><span>Mínútur þar til spilun stöðvast</span>
+          <input type="number" min="1" max="240" step="1" data-e="minutes" data-i="${i}" value="${c.minutes || 15}"></label>` : ""}
+        ${c.action === "speaker" ? spk("Hátalari", "Hátalarinn í stillingunum (til baka)") : ""}
+      </div>`;
+    }
+    const story = isStory(c) || series > 0, hist = this._history[c.id] || {}, pos = this._positions[c.id];
+    const where = pos && (pos.index > 0 || pos.elapsed >= 15)
+      ? `Heldur áfram ${series ? `í bók ${pos.index + 1}, ` : ""}${duration(pos.elapsed)} inn.` : "";
     return `<div class="kf">
+      ${doSel}
       ${this._renderInfo(i, c)}
       <div class="find big">
         <input type="search" id="q${i}" placeholder="Leitaðu að sögu, plötu eða lagalista – eða límdu tengil" value="${esc(f ? f.q : "")}" autocomplete="off">
@@ -1686,6 +1823,15 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
         ${series > 5 ? `<button class="link-b" data-seropen="${i}">${this._serOpen === i ? "Sýna færri" : `Sýna allar ${series + 1} bækurnar`}</button>` : ""}</div>` : ""}
       <label class="sw"><input type="checkbox" data-e="shuffle" data-i="${i}" ${c.shuffle ? "checked" : ""}> Stokka (handahófsröð)</label>
       <label class="sw"><input type="checkbox" data-e="keep_playing" data-i="${i}" ${c.keep_playing ? "checked" : ""}> Halda áfram að spila þegar kortið er tekið af</label>
+      ${story ? `<label class="sw"><input type="checkbox" data-e="remember" data-i="${i}" ${(typeof c.remember === "boolean" ? c.remember : isStory(c)) && !c.next_each_time ? "checked" : ""} ${c.next_each_time ? "disabled" : ""}> Muna hvar sagan var og halda áfram þaðan</label>` : ""}
+      ${series ? `<label class="sw"><input type="checkbox" data-e="next_each_time" data-i="${i}" ${c.next_each_time ? "checked" : ""}> Spila næstu bók í seríunni í hvert sinn</label>` : ""}
+      ${where ? `<div class="msg small">📖 ${where} <button class="link-b" data-forget="${esc(c.id)}">Byrja upp á nýtt</button></div>` : ""}
+      <details class="adv" ${c.player || c.start_volume ? "open" : ""}><summary>Hátalari og hljóðstyrkur</summary>
+        ${spk("Þetta kort spilar á", "Sama hátalara og hin kortin")}
+        <label class="fld"><span>Hljóðstyrkur þegar kortið byrjar (%) – autt = óbreyttur</span>
+          <input type="number" min="5" max="100" step="5" data-e="start_volume" data-i="${i}" value="${c.start_volume ? Math.round(c.start_volume * 100) : ""}" placeholder="óbreyttur"></label>
+      </details>
+      ${hist.count ? `<div class="msg small">Spilað ${hist.count} sinnum${hist.last ? ` · síðast ${shortDate(hist.last)}` : ""}${hist.seconds >= 60 ? ` · alls ${duration(hist.seconds)}` : ""}</div>` : ""}
       <details class="adv"><summary>Ítarlegt</summary>
         <label>Miðill <input type="text" data-e="media_id" data-i="${i}" value="${esc(c.media_id || "")}" placeholder="library://album/2"></label>
         <label>Tegund <select data-e="media_type" data-i="${i}">
@@ -1727,7 +1873,7 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
         <span class="flex"></span>
         <label class="sw"><input type="checkbox" id="pInc" ${it.include ? "checked" : ""}> Prenta</label></div>
       <div class="rowc"><span class="lbl">Tegund</span>
-        <span class="seg">${GROUPS.map(([k]) => `<button data-pkind="${k}" class="${it.kind === k ? "on" : ""}">${CAT[k].chip}</button>`).join("")}</span></div>
+        <span class="seg">${GROUPS.slice(0, 2).map(([k]) => `<button data-pkind="${k}" class="${it.kind === k ? "on" : ""}">${CAT[k].chip}</button>`).join("")}</span></div>
       <div class="drop" id="drop">
         <span>🖼️ Dragðu mynd hingað eða</span>
         <button class="sec sm" id="pPick">Velja mynd</button>
@@ -1829,6 +1975,10 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
     // grid
     const selectAll = (fn) => { items.forEach((it) => { const v = fn(it); if (v !== it.include) this._setLabel(it, { include: v ? null : false }); it.include = v; }); this._render(); };
     on("selAll", "onclick", () => selectAll(() => true));
+    on("wizStart", "onclick", () => this._wizStart());
+    const wizEnd = () => { this._wiz = null; this._render(); };
+    on("wizClose", "onclick", wizEnd); on("wizDone", "onclick", wizEnd);
+    on("wizSkip", "onclick", () => { const n = this._missing()[0]; if (n) { this._wiz.skip.add(n.c.id); this._wiz.msg = ""; } this._render(); });
     on("selNone", "onclick", () => selectAll(() => false));
     on("selNew", "onclick", () => selectAll((it) => !this._printedAt(it)));
     q("[data-tick]").forEach((el) => el.onclick = stop(() => {
@@ -1875,8 +2025,14 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
     });
     q("[data-e]").forEach((el) => el.onchange = () => {
       if (el.dataset.e === "media_id") { this._lookup(+el.dataset.i, el.value); return; }
-      const v = el.type === "checkbox" ? el.checked : el.value.trim();
+      let v = el.type === "checkbox" ? el.checked : el.value.trim();
+      if (el.dataset.e === "start_volume") v = v ? Math.max(0.05, Math.min(1, (+v || 0) / 100)) : "";
+      if (el.dataset.e === "minutes") v = Math.max(1, Math.min(240, parseInt(v, 10) || 15));
       this._change(+el.dataset.i, el.dataset.e, el.dataset.e === "more_media" ? el.value.split("\n").map((x) => x.trim()).filter(Boolean).join("\n") : v);
+    });
+    q("[data-forget]").forEach((el) => el.onclick = async () => {
+      try { await this._hass.callWS({ type: "vordisarvarpid/reset_position", entry_id: this._entryId, card_id: el.dataset.forget }); } catch (e) { /* ignore */ }
+      delete this._positions[el.dataset.forget]; this._render();
     });
     q("[data-newest]").forEach((el) => el.onclick = async () => {
       await this._loadTags();
@@ -2069,7 +2225,21 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
         .ok { color:var(--success-color, #2e7d32); font-size:12px; }
         .warn { color:var(--warning-color, #e65100); font-size:12px; }
         /* dialog */
-        .ovl { position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,.5); display:flex; align-items:center; justify-content:center; padding:16px; box-sizing:border-box; }
+        .ovl { position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,.5); display:flex; align-items:flex-start; justify-content:center; padding:min(8vh, 64px) 16px 16px; box-sizing:border-box; }
+        .st { display:flex; gap:6px; flex-wrap:wrap; margin:-4px 0 10px; }
+        .st:empty { display:none; }
+        .st-chip { font-size:12px; padding:2px 9px; border-radius:999px; background:var(--secondary-background-color); color:var(--primary-text-color); }
+        .st-chip.full { background:#b3261e; color:#fff; }
+        .dlg.wiz { max-width:520px; }
+        .wiz-bar { height:6px; border-radius:3px; background:var(--secondary-background-color); overflow:hidden; }
+        .wiz-bar span { display:block; height:100%; background:var(--primary-color); transition:width .3s; }
+        .wiz-c { display:flex; gap:14px; align-items:center; padding:6px 0; }
+        .wiz-c img, .wiz-c .ph { width:46%; max-width:220px; border-radius:10px; aspect-ratio:85.6/54; object-fit:cover; background:var(--secondary-background-color); display:flex; align-items:center; justify-content:center; }
+        .wiz-t { display:flex; flex-direction:column; gap:6px; min-width:0; }
+        .wiz-t b { font-size:20px; line-height:1.2; }
+        .dlg.wiz .dlg-f { position:static; padding:10px 0 0; }
+        .notice.good { background:rgba(46,160,67,.16); } .notice.bad { background:rgba(179,38,30,.16); }
+        .tile:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible { outline:2px solid var(--primary-color); outline-offset:2px; }
         .dlg { background:var(--card-background-color, #fff); color:var(--primary-text-color); border-radius:20px; width:100%; max-width:480px;
                max-height:100%; overflow:auto; padding:16px 18px 18px; box-sizing:border-box; display:flex; flex-direction:column; gap:12px;
                box-shadow:0 10px 40px rgba(0,0,0,.35); }
@@ -2189,7 +2359,7 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
         .ptabs button { background:transparent; color:var(--secondary-text-color); border-radius:10px 10px 0 0; padding:9px 16px; }
         .ptabs button.on { color:var(--primary-color); box-shadow:inset 0 -3px 0 var(--primary-color); }
         .pbody { padding:12px 16px; }
-        .dlg.wide > .notice { margin:10px 16px 0; }
+        .dlg.wide > .notice { margin:0 16px 10px; }
         .dlg-f { position:sticky; bottom:0; display:flex; gap:8px; align-items:center; padding:10px 16px; border-top:1px solid var(--divider-color);
                  background:var(--card-background-color, #fff); border-radius:0 0 20px 20px; }
         .kf .fld select { flex:1; min-width:160px; }
@@ -2199,6 +2369,9 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
         @media (max-width: 520px) {
           .ovl { padding:0; align-items:flex-end; }
           .dlg, .dlg.wide { border-radius:16px 16px 0 0; max-height:92%; }
+          .dlg.wide { height:92%; }  /* fixed height: messages don't move the buttons */
+          .dlg.wide .pbody { flex:1 1 auto; }
+          .dlg.wiz { max-height:none; }
           .dlg-f { border-radius:0; }
           .hthumb { width:56px; }
           .top .ttl { flex-basis:100%; }

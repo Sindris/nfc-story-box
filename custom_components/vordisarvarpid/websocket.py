@@ -18,7 +18,7 @@ ENTRY = vol.Optional("entry_id")
 
 @callback
 def async_register_websocket(hass: HomeAssistant) -> None:
-    for handler in (ws_list, ws_get, ws_save_cards, ws_update, ws_play, ws_stop, ws_subscribe):
+    for handler in (ws_list, ws_get, ws_save_cards, ws_update, ws_play, ws_stop, ws_subscribe, ws_reset_position):
         websocket_api.async_register_command(hass, handler)
 
 
@@ -172,4 +172,20 @@ def ws_subscribe(hass: HomeAssistant, connection: websocket_api.ActiveConnection
         )
 
     connection.subscriptions[msg["id"]] = async_dispatcher_connect(hass, SIGNAL_UPDATED.format(entry.entry_id), forward)
+    connection.send_result(msg["id"])
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): "vordisarvarpid/reset_position", ENTRY: str, vol.Required("card_id"): str}
+)
+@callback
+def ws_reset_position(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Start a story from the beginning next time."""
+    entry = _guard(connection, msg, lambda: get_entry(hass, msg.get("entry_id")))
+    if entry is None:
+        return
+    store = entry.runtime_data.store
+    store.data["positions"].pop(msg["card_id"], None)
+    store.data["series_next"].pop(msg["card_id"], None)
+    store.schedule_save()
     connection.send_result(msg["id"])
