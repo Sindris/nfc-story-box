@@ -42,6 +42,7 @@ from .const import (
     CONF_QUIET_MAX_VOLUME,
     CONF_QUIET_START,
     CONF_RECORD_STATS,
+    CONF_ONLY_SPEAKER,
     CONF_SUMMARY_NOTIFY,
     CONF_QUIET_STORIES_ONLY,
     CONF_READER_DEVICE,
@@ -136,24 +137,41 @@ class VordisBox:
             return self._resolve(own)
         return self._resolve(self.default_player)
 
+    def _groups_of(self, player: str) -> list[str]:
+        """Switched-on Music Assistant groups that this speaker is a member of (same queue)."""
+        state = self.hass.states.get(player)
+        queue = state.attributes.get("active_queue") if state is not None else None
+        if not queue:
+            return []
+        return [
+            other.entity_id for other in self.hass.states.async_all("media_player")
+            if other.entity_id != player
+            and other.state not in (STATE_OFF, STATE_UNAVAILABLE, STATE_UNKNOWN)
+            and other.attributes.get("active_queue") == queue
+            and player in (other.attributes.get("group_members") or [])
+        ]
+
     def _resolve(self, player: str) -> str:
         """The speaker that really plays: the group, when this speaker is part of a group that is switched on.
 
         Music Assistant plays on the whole group then, and the speaker's own state stays idle.
+        With "only this speaker" on, the speaker itself is used (the group is switched off before playing).
         """
-        state = self.hass.states.get(player)
-        queue = state.attributes.get("active_queue") if state is not None else None
-        if not queue:
+        if self.conf.get(CONF_ONLY_SPEAKER, False):
             return player
-        for other in self.hass.states.async_all("media_player"):
-            if (
-                other.entity_id != player
-                and other.state not in (STATE_OFF, STATE_UNAVAILABLE, STATE_UNKNOWN)
-                and other.attributes.get("active_queue") == queue
-                and player in (other.attributes.get("group_members") or [])
-            ):
-                return other.entity_id
-        return player
+        groups = self._groups_of(player)
+        return groups[0] if groups else player
+
+    async def _leave_groups(self, player: str) -> None:
+        """Switch off the groups the speaker is in, so that it plays alone."""
+        if not self.conf.get(CONF_ONLY_SPEAKER, False):
+            return
+        for group in self._groups_of(player):
+            await self._call("media_player", "turn_off", {"entity_id": group}, quiet=True)
+        for _ in range(20):
+            if not self._groups_of(player):
+                return
+            await asyncio.sleep(0.25)
 
     @property
     def quiet(self) -> bool:
@@ -518,6 +536,7 @@ class VordisBox:
         """Play a card, or continue it if it is the same card and playback is paused."""
         async with self._lock:
             player = self._target(card)
+            await self._leave_groups(player)
             tag = norm_tag(card.get("tag_id"))
             state = self.hass.states.get(player)
             if state is None or state.state == STATE_UNAVAILABLE:

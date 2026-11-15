@@ -24,6 +24,7 @@ from .const import (
     CONF_QUIET_STORIES_ONLY,
     CONF_RECORD_STATS,
     CONF_SUMMARY_NOTIFY,
+    CONF_ONLY_SPEAKER,
     CONF_PAUSE_ON_REMOVE,
     CONF_PLAYER,
     CONF_READER_DEVICE,
@@ -69,6 +70,7 @@ def _schema(defaults: dict[str, Any], *, with_reader: bool = True) -> vol.Schema
         ),
         vol.Required(CONF_PAUSE_ON_REMOVE, default=defaults.get(CONF_PAUSE_ON_REMOVE, True)): selector.BooleanSelector(),
         vol.Required(CONF_RESUME_SAME_CARD, default=defaults.get(CONF_RESUME_SAME_CARD, True)): selector.BooleanSelector(),
+        vol.Required(CONF_ONLY_SPEAKER, default=defaults.get(CONF_ONLY_SPEAKER, False)): selector.BooleanSelector(),
         vol.Optional(CONF_SOUND_SERVICE, description={"suggested_value": defaults.get(CONF_SOUND_SERVICE)}): selector.TextSelector(),
     })
     if not with_reader:  # the extras are only in the settings, to keep the first setup short

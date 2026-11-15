@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 import yaml
 
@@ -537,6 +539,25 @@ async def test_speaker_in_a_group_that_is_on(hass, reader, calls):
     hass.states.async_set(group, "off", {"active_queue": "g1", "group_members": [PLAYER, "media_player.x"]})
     hass.states.async_set(PLAYER, "idle", {"volume_level": 0.5, "active_queue": "own"})
     await _scan(hass, reader, "AA-BB")
+    assert calls["ma_play"][-1].data["entity_id"] == PLAYER
+
+
+async def test_only_speaker_switches_the_group_off(hass, reader, calls):
+    """With "only this speaker" on, the group the speaker is in is switched off and the speaker itself plays."""
+    off = async_mock_service(hass, "media_player", "turn_off")
+    entry = await _setup(hass, reader, only_speaker=True)
+    group = "media_player.everyone"
+    hass.states.async_set(PLAYER, "idle", {"volume_level": 0.5, "active_queue": "g1", "group_members": []})
+    hass.states.async_set(group, "idle", {"volume_level": 0.5, "active_queue": "g1", "group_members": [PLAYER, "media_player.x"]})
+
+    async def _group_goes_off():
+        await asyncio.sleep(0.1)
+        hass.states.async_set(group, "off", {"active_queue": "g1", "group_members": [PLAYER, "media_player.x"]})
+
+    task = hass.async_create_task(_group_goes_off())
+    await _scan(hass, reader, "89-4A-71-E6")
+    await task
+    assert off and off[-1].data["entity_id"] == group
     assert calls["ma_play"][-1].data["entity_id"] == PLAYER
 
 

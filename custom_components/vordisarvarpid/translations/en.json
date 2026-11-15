@@ -55,7 +55,8 @@
           "quiet_stories_only": "Only story cards during quiet hours",
           "daily_limit": "Listening per day (0 = no limit)",
           "record_stats": "Record listening statistics",
-          "summary_notify": "Weekly summary: notification action (e.g. notify.mobile_app_phone)"
+          "summary_notify": "Weekly summary: notification action (e.g. notify.mobile_app_phone)",
+          "only_speaker": "Play only on the chosen speaker (switch off groups it is in)"
         }
       }
     }

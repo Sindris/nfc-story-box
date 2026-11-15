@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.3
+
+Added
+- New setting "Play only on the chosen speaker". When the speaker is a member of a Music Assistant group
+  that is switched on, Music Assistant plays on the whole group. With this setting on, the box switches
+  that group off first and plays on the chosen speaker alone. Off by default.
+
 ## 1.2.2
 
 Fixed

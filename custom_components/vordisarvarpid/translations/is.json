@@ -55,7 +55,8 @@
           "quiet_stories_only": "Aðeins sögukort á rólega tímanum",
           "daily_limit": "Hlustun á dag (0 = engin mörk)",
           "record_stats": "Skrá hlustunartölfræði",
-          "summary_notify": "Vikuyfirlit: tilkynningaþjónusta (t.d. notify.mobile_app_siminn)"
+          "summary_notify": "Vikuyfirlit: tilkynningaþjónusta (t.d. notify.mobile_app_siminn)",
+          "only_speaker": "Spila bara á völdum hátalara (slökkva á hópum sem hann er í)"
         }
       }
     }
