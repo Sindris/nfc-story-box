@@ -28,7 +28,8 @@
           "pause_on_remove": "Pausa när kortet lyfts bort",
           "resume_same_card": "Fortsätt där det slutade när samma kort läggs på igen",
           "sound_service": "Ljudåtgärd på lådan (t.ex. esphome.nfc_reader_play_sound)",
-          "only_speaker": "Spela bara på den här högtalaren"
+          "only_speaker": "Spela bara på den här högtalaren",
+          "phone_scan": "Spela även kort som skannas med en mobil"
         }
       }
     },
@@ -51,14 +52,16 @@
               "only_speaker": "Spela bara på den här högtalaren",
               "button_event": "Knappar (event-entitet)",
               "card_present": "Kort på läsaren (binary sensor)",
-              "sound_service": "Ljudåtgärd på lådan"
+              "sound_service": "Ljudåtgärd på lådan",
+              "phone_scan": "Spela även kort som skannas med en mobil"
             },
             "data_description": {
               "player": "Korten spelas här. Bara Music Assistant-spelare visas.",
               "only_speaker": "Om högtalaren ingår i en Music Assistant-grupp som är påslagen spelar Music Assistant på hela gruppen. Slå på det här för att först stänga av gruppen, så att bara den här högtalaren spelar.",
               "button_event": "Lådans knappar (föregående, nästa, volym). Lämna tomt om den inte har några.",
               "card_present": "Talar om för lådan när ett kort lyfts bort så att den kan pausa. Lämna tomt om den aldrig ska pausa när kortet lyfts.",
-              "sound_service": "Pipljudet när ett kort läggs på (t.ex. esphome.nfc_reader_play_sound). Hittas automatiskt om fältet är tomt."
+              "sound_service": "Pipljudet när ett kort läggs på (t.ex. esphome.nfc_reader_play_sound). Hittas automatiskt om fältet är tomt.",
+              "phone_scan": "Låter Home Assistant-appen i en mobil fungera som en extra läsare: ett kort som hålls mot mobilen spelas precis som på lådan. Av betyder att bara lådans läsare räknas. Kräver appen med NFC i mobilen."
             }
           },
           "playback": {

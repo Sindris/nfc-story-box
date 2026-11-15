@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 DOMAIN = "vordisarvarpid"
-VERSION = "1.3.0"
+VERSION = "1.3.1"
 
 # Config entry data / options
 CONF_READER_DEVICE = "reader_device"
@@ -23,6 +23,7 @@ CONF_DAILY_LIMIT = "daily_limit"
 CONF_RECORD_STATS = "record_stats"
 CONF_SUMMARY_NOTIFY = "summary_notify"
 CONF_ONLY_SPEAKER = "only_speaker"
+CONF_PHONE_SCAN = "phone_scan"
 CONF_IMPORT_AUTOMATION = "import_automation"
 CONF_DISABLE_AUTOMATION = "disable_automation"
 

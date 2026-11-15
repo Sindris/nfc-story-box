@@ -28,7 +28,8 @@
           "pause_on_remove": "Pása þegar kort er tekið af",
           "resume_same_card": "Halda áfram þar sem frá var horfið ef sama kort fer aftur á",
           "sound_service": "Hljóð-aðgerð tækisins (t.d. esphome.nfc_reader_play_sound)",
-          "only_speaker": "Spila bara á þessum hátalara"
+          "only_speaker": "Spila bara á þessum hátalara",
+          "phone_scan": "Spila líka kort sem skönnuð eru með síma"
         }
       }
     },
@@ -51,14 +52,16 @@
               "only_speaker": "Spila bara á þessum hátalara",
               "button_event": "Takkar (event-eining)",
               "card_present": "Kort á lesara (binary sensor)",
-              "sound_service": "Hljóð-aðgerð tækisins"
+              "sound_service": "Hljóð-aðgerð tækisins",
+              "phone_scan": "Spila líka kort sem skönnuð eru með síma"
             },
             "data_description": {
               "player": "Kortin spilast hér. Aðeins Music Assistant spilarar eru í boði.",
               "only_speaker": "Ef hátalarinn er í Music Assistant hópi sem er í gangi spilar Music Assistant á öllum hópnum. Kveiktu á þessu til að slökkva fyrst á hópnum svo aðeins þessi hátalari spili.",
               "button_event": "Takkar tækisins (næsta, fyrra, hljóðstyrkur). Skildu eftir tómt ef þeir eru ekki til.",
               "card_present": "Segir tækinu hvenær kort er tekið af svo það geti gert hlé. Tómt þýðir að aldrei er gert hlé.",
-              "sound_service": "Pípið þegar kort er lagt á (t.d. esphome.nfc_reader_play_sound). Finnst sjálfkrafa ef tómt."
+              "sound_service": "Pípið þegar kort er lagt á (t.d. esphome.nfc_reader_play_sound). Finnst sjálfkrafa ef tómt.",
+              "phone_scan": "Leyfir Home Assistant appinu í síma að vera aukalesari: kort haldið upp að símanum spilast eins og á tækinu. Slökkt þýðir að aðeins lesari tækisins gildir. Krefst appsins með NFC í símanum."
             }
           },
           "playback": {

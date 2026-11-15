@@ -26,6 +26,7 @@ from .const import (
     CONF_RECORD_STATS,
     CONF_SUMMARY_NOTIFY,
     CONF_ONLY_SPEAKER,
+    CONF_PHONE_SCAN,
     CONF_PAUSE_ON_REMOVE,
     CONF_PLAYER,
     CONF_READER_DEVICE,
@@ -69,6 +70,7 @@ def _fields(defaults: dict[str, Any], notify_options: list[str] | None = None) -
             selector.EntitySelector(selector.EntitySelectorConfig(domain="media_player", integration="music_assistant")),
         ),
         CONF_ONLY_SPEAKER: (req(CONF_ONLY_SPEAKER, False), selector.BooleanSelector()),
+        CONF_PHONE_SCAN: (req(CONF_PHONE_SCAN, False), selector.BooleanSelector()),
         CONF_BUTTON_EVENT: (opt(CONF_BUTTON_EVENT), selector.EntitySelector(selector.EntitySelectorConfig(domain="event"))),
         CONF_CARD_PRESENT: (opt(CONF_CARD_PRESENT), selector.EntitySelector(selector.EntitySelectorConfig(domain="binary_sensor"))),
         CONF_SOUND_SERVICE: (opt(CONF_SOUND_SERVICE), selector.TextSelector()),
@@ -96,7 +98,7 @@ def _fields(defaults: dict[str, Any], notify_options: list[str] | None = None) -
 
 # The settings page: groups, in order, and whether a group starts folded.
 SECTIONS: dict[str, tuple[tuple[str, ...], bool]] = {
-    "speaker": ((CONF_PLAYER, CONF_ONLY_SPEAKER, CONF_BUTTON_EVENT, CONF_CARD_PRESENT, CONF_SOUND_SERVICE), False),
+    "speaker": ((CONF_PLAYER, CONF_ONLY_SPEAKER, CONF_PHONE_SCAN, CONF_BUTTON_EVENT, CONF_CARD_PRESENT, CONF_SOUND_SERVICE), False),
     "playback": ((CONF_START_VOLUME, CONF_VOLUME_STEP, CONF_PAUSE_ON_REMOVE, CONF_RESUME_SAME_CARD), False),
     "limits": ((CONF_QUIET_START, CONF_QUIET_END, CONF_QUIET_MAX_VOLUME, CONF_QUIET_STORIES_ONLY, CONF_DAILY_LIMIT), True),
     "stats": ((CONF_RECORD_STATS, CONF_SUMMARY_NOTIFY), True),
@@ -107,7 +109,7 @@ OPTIONAL_TEXT = (CONF_BUTTON_EVENT, CONF_CARD_PRESENT, CONF_SOUND_SERVICE, CONF_
 def _schema(defaults: dict[str, Any]) -> vol.Schema:
     """First setup: a short flat form."""
     fields = _fields(defaults)
-    keys = (CONF_READER_DEVICE, CONF_PLAYER, CONF_ONLY_SPEAKER, CONF_BUTTON_EVENT, CONF_CARD_PRESENT, CONF_START_VOLUME,
+    keys = (CONF_READER_DEVICE, CONF_PLAYER, CONF_ONLY_SPEAKER, CONF_PHONE_SCAN, CONF_BUTTON_EVENT, CONF_CARD_PRESENT, CONF_START_VOLUME,
             CONF_VOLUME_STEP, CONF_PAUSE_ON_REMOVE, CONF_RESUME_SAME_CARD, CONF_SOUND_SERVICE)
     return vol.Schema({fields[k][0]: fields[k][1] for k in keys})
 

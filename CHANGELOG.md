@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.1
+
+Added
+- New option "Also play cards scanned with a phone" (off by default). When on, a card held to a phone with
+  the Home Assistant app plays just like on the box. When off, only the box's reader counts.
+
 ## 1.3.0
 
 Added

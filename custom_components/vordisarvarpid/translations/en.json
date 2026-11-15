@@ -28,7 +28,8 @@
           "pause_on_remove": "Pause when the card is lifted",
           "resume_same_card": "Continue where it stopped when the same card goes back on",
           "sound_service": "Sound action on the box (e.g. esphome.nfc_reader_play_sound)",
-          "only_speaker": "Play only on this speaker"
+          "only_speaker": "Play only on this speaker",
+          "phone_scan": "Also play cards scanned with a phone"
         }
       }
     },
@@ -51,14 +52,16 @@
               "only_speaker": "Play only on this speaker",
               "button_event": "Buttons (event entity)",
               "card_present": "Card on reader (binary sensor)",
-              "sound_service": "Sound action on the box"
+              "sound_service": "Sound action on the box",
+              "phone_scan": "Also play cards scanned with a phone"
             },
             "data_description": {
               "player": "Cards play here. Only Music Assistant players are listed.",
               "only_speaker": "If this speaker is part of a Music Assistant group that is on, Music Assistant plays on the whole group. Turn this on to switch that group off first, so only this speaker plays.",
               "button_event": "The box's buttons (previous, next, volume). Leave empty if it has none.",
               "card_present": "Tells the box when a card is lifted, so it can pause. Leave empty to never pause on lifting.",
-              "sound_service": "The beep played on a card (e.g. esphome.nfc_reader_play_sound). Found automatically if empty."
+              "sound_service": "The beep played on a card (e.g. esphome.nfc_reader_play_sound). Found automatically if empty.",
+              "phone_scan": "Lets the Home Assistant app on a phone act as a second reader: holding a card to the phone plays it, just like on the box. Off means only the box's reader counts. Needs the app with NFC on the phone."
             }
           },
           "playback": {

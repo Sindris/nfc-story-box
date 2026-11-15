@@ -715,3 +715,17 @@ async def test_weekly_summary_language(hass, reader, calls, language, expected):
     await hass.services.async_call(DOMAIN, "weekly_summary", {}, blocking=True)
     await hass.async_block_till_done()
     assert expected in phone[0].data["message"]
+
+
+async def test_phone_scan_is_optional(hass, reader, calls):
+    await _setup(hass, reader)
+    hass.bus.async_fire("tag_scanned", {"tag_id": "89-4a-71-e6", "device_id": "phone"})
+    await hass.async_block_till_done()
+    assert not calls["ma_play"]
+
+
+async def test_phone_scan_plays_when_enabled(hass, reader, calls):
+    await _setup(hass, reader, phone_scan=True)
+    hass.bus.async_fire("tag_scanned", {"tag_id": "89-4a-71-e6", "device_id": "phone"})
+    await hass.async_block_till_done()
+    assert calls["ma_play"]

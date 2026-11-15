@@ -43,6 +43,7 @@ from .const import (
     CONF_QUIET_START,
     CONF_RECORD_STATS,
     CONF_ONLY_SPEAKER,
+    CONF_PHONE_SCAN,
     CONF_SUMMARY_NOTIFY,
     notify_targets,
     CONF_QUIET_STORIES_ONLY,
@@ -357,7 +358,7 @@ class VordisBox:
     @callback
     def _on_tag(self, event: Event) -> None:
         reader = self.conf.get(CONF_READER_DEVICE)
-        if reader and event.data.get("device_id") != reader:
+        if reader and event.data.get("device_id") != reader and not self.conf.get(CONF_PHONE_SCAN, False):
             return
         tag = norm_tag(event.data.get("tag_id"))
         if not tag:
