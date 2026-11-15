@@ -1,10 +1,10 @@
-// Vordísarvarpið – loader.
+// NFC Story Box – loader.
 // Home Assistant loads this small file on every dashboard. The card pages themselves (and the fonts and
 // PDF library of the label page) are only fetched when a dashboard actually shows the card.
 
 const HERE = new URL(import.meta.url);
-window.__VORDIS_LOADER = true;
-window.__VORDIS_BASE = new URL(".", HERE).href;
+window.__NSB_LOADER = true;
+window.__NSB_BASE = new URL(".", HERE).href;
 
 function define(tag, file, name, description) {
   const IMPL = tag + "-impl";
@@ -36,7 +36,7 @@ function define(tag, file, name, description) {
         this.replaceChildren(el);
       } catch (err) {
         this._starting = false;
-        this.textContent = "Vordísarvarpið: " + (err && err.message ? err.message : err);
+        this.textContent = "NFC Story Box: " + (err && err.message ? err.message : err);
       }
     }
 
@@ -51,10 +51,10 @@ function define(tag, file, name, description) {
 }
 
 define(
-  "vordisarvarpid-kortamidar-card", "vordisarvarpid-kortamidar-card.js", "Vordísarvarpið",
-  "Kortin á Vordísarvarpinu: hvað þau spila og prentanlegir miðar með forsíðumyndum.",
+  "nfc-story-box-card", "nfc-story-box-card.js", "NFC Story Box",
+  "Kortin á kassanum: hvað þau spila og prentanlegir miðar með forsíðumyndum.",
 );
 define(
-  "vordisarvarpid-tolfraedi-card", "vordisarvarpid-tolfraedi-card.js", "Vordísarvarpið – tölfræði",
+  "nfc-story-box-stats-card", "nfc-story-box-stats-card.js", "NFC Story Box – tölfræði",
   "Hlustun, vinsælustu kortin og hvenær spilarinn er notaður.",
 );

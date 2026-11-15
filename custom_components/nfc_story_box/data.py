@@ -10,24 +10,24 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ServiceValidationError
 
 from .const import DOMAIN
-from .controller import VordisBox
-from .store import VordisStore
+from .controller import StoryBox
+from .store import CardStore
 
 
 @dataclass
-class VordisData:
-    store: VordisStore
-    box: VordisBox
+class RuntimeData:
+    store: CardStore
+    box: StoryBox
 
 
-type VordisConfigEntry = ConfigEntry[VordisData]
+type StoryBoxConfigEntry = ConfigEntry[RuntimeData]
 
 
-def loaded_entries(hass: HomeAssistant) -> list[VordisConfigEntry]:
+def loaded_entries(hass: HomeAssistant) -> list[StoryBoxConfigEntry]:
     return [e for e in hass.config_entries.async_entries(DOMAIN) if e.state is ConfigEntryState.LOADED]
 
 
-def get_entry(hass: HomeAssistant, entry_id: str | None) -> VordisConfigEntry:
+def get_entry(hass: HomeAssistant, entry_id: str | None) -> StoryBoxConfigEntry:
     entries = loaded_entries(hass)
     if entry_id:
         entries = [e for e in entries if e.entry_id == entry_id]
@@ -36,6 +36,6 @@ def get_entry(hass: HomeAssistant, entry_id: str | None) -> VordisConfigEntry:
     return entries[0]
 
 
-def entry_payload(entry: VordisConfigEntry) -> dict[str, Any]:
+def entry_payload(entry: StoryBoxConfigEntry) -> dict[str, Any]:
     conf = {**entry.data, **entry.options}
     return {"entry_id": entry.entry_id, "title": entry.title, **{k: v for k, v in conf.items() if k != "import"}}

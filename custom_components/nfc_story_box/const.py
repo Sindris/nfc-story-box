@@ -1,9 +1,9 @@
-"""Constants for Vordísarvarpið."""
+"""Constants for NFC Story Box."""
 
 from __future__ import annotations
 
-DOMAIN = "vordisarvarpid"
-VERSION = "1.3.1"
+DOMAIN = "nfc_story_box"
+VERSION = "2.0.0"
 
 # Config entry data / options
 CONF_READER_DEVICE = "reader_device"
@@ -24,15 +24,15 @@ CONF_RECORD_STATS = "record_stats"
 CONF_SUMMARY_NOTIFY = "summary_notify"
 CONF_ONLY_SPEAKER = "only_speaker"
 CONF_PHONE_SCAN = "phone_scan"
-CONF_IMPORT_AUTOMATION = "import_automation"
-CONF_DISABLE_AUTOMATION = "disable_automation"
+CONF_MIGRATE_FROM = "migrate_from"
+CONF_DISABLE_LEGACY = "disable_legacy"
 
 DEFAULT_START_VOLUME = 0.0
 DEFAULT_MAX_VOLUME = 0.6
 DEFAULT_VOLUME_STEP = 0.04
 MIN_VOLUME = 0.05
 
-BLUEPRINT_SUFFIX = "tonaval_nfc_spilari.yaml"
+LEGACY_DOMAIN = "vordisarvarpid"   # the pre-release name of this integration (see config_flow: migrate)
 
 # Events fired on the bus for the card page (and automations)
 EVENT_CARD_SCANNED = f"{DOMAIN}_card_scanned"
@@ -59,9 +59,9 @@ ACTIONS = (ACTION_STOP, ACTION_SLEEP, ACTION_SPEAKER, ACTION_SURPRISE)
 DEFAULT_SLEEP_MINUTES = 15
 
 FRONTEND_URL = f"/{DOMAIN}_static"
-CARD_FILE = "vordisarvarpid-kortamidar-card.js"
-LOADER_FILE = "vordisarvarpid-loader.js"
-STATS_CARD_FILE = "vordisarvarpid-tolfraedi-card.js"
+CARD_FILE = "nfc-story-box-card.js"
+LOADER_FILE = "nfc-story-box-loader.js"
+STATS_CARD_FILE = "nfc-story-box-stats-card.js"
 
 SIGNAL_UPDATED = f"{DOMAIN}_updated_{{}}"
 

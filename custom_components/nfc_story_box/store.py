@@ -1,6 +1,6 @@
-"""Storage for Vordísarvarpið: the cards, label settings and print settings.
+"""Storage for NFC Story Box: the cards, label settings and print settings.
 
-Everything lives in Home Assistant's own storage (.storage/vordisarvarpid.<entry_id>),
+Everything lives in Home Assistant's own storage (.storage/nfc_story_box.<entry_id>),
 so it is included in backups and shared by every device that opens the card page.
 """
 
@@ -87,7 +87,7 @@ def remembers(card: dict[str, Any]) -> bool:
     return value if isinstance(value, bool) else is_story(card)
 
 
-class VordisStore:
+class CardStore:
     """Holds and saves the data for one box."""
 
     def __init__(self, hass: HomeAssistant, entry_id: str) -> None:

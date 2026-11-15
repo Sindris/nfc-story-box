@@ -12,18 +12,18 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.util import dt as dt_util
 
 from . import stats as statlib
-from .data import VordisConfigEntry
-from .entity import VordisEntity
+from .data import StoryBoxConfigEntry
+from .entity import StoryBoxEntity
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: VordisConfigEntry, add: AddConfigEntryEntitiesCallback) -> None:
+async def async_setup_entry(hass: HomeAssistant, entry: StoryBoxConfigEntry, add: AddConfigEntryEntitiesCallback) -> None:
     add([CurrentCardSensor(entry), ListenedTodaySensor(entry), ListenedWeekSensor(entry), MostPlayedSensor(entry)])
 
 
-class CurrentCardSensor(VordisEntity, SensorEntity):
+class CurrentCardSensor(StoryBoxEntity, SensorEntity):
     _attr_icon = "mdi:card-text"
 
-    def __init__(self, entry: VordisConfigEntry) -> None:
+    def __init__(self, entry: StoryBoxConfigEntry) -> None:
         super().__init__(entry, "current_card")
 
     @property
@@ -47,7 +47,7 @@ class CurrentCardSensor(VordisEntity, SensorEntity):
         }
 
 
-class ListenedTodaySensor(VordisEntity, SensorEntity):
+class ListenedTodaySensor(StoryBoxEntity, SensorEntity):
     """Minutes played today; updated when playback starts or stops and every half minute while playing."""
 
     _attr_icon = "mdi:timer-music-outline"
@@ -55,7 +55,7 @@ class ListenedTodaySensor(VordisEntity, SensorEntity):
     _attr_native_unit_of_measurement = UnitOfTime.MINUTES
     _attr_state_class = SensorStateClass.TOTAL_INCREASING
 
-    def __init__(self, entry: VordisConfigEntry) -> None:
+    def __init__(self, entry: StoryBoxConfigEntry) -> None:
         super().__init__(entry, "listened_today")
 
     @property
@@ -68,7 +68,7 @@ class ListenedTodaySensor(VordisEntity, SensorEntity):
         return {"limit": limit or None, "limit_reached": self.box.limit_reached}
 
 
-class ListenedWeekSensor(VordisEntity, SensorEntity):
+class ListenedWeekSensor(StoryBoxEntity, SensorEntity):
     """Minutes played in the last 7 days (with the 7 days before as an attribute)."""
 
     _attr_icon = "mdi:chart-timeline-variant"
@@ -76,7 +76,7 @@ class ListenedWeekSensor(VordisEntity, SensorEntity):
     _attr_native_unit_of_measurement = UnitOfTime.MINUTES
     _attr_state_class = SensorStateClass.MEASUREMENT
 
-    def __init__(self, entry: VordisConfigEntry) -> None:
+    def __init__(self, entry: StoryBoxConfigEntry) -> None:
         super().__init__(entry, "listened_week")
 
     def _summary(self) -> dict[str, Any]:
@@ -92,12 +92,12 @@ class ListenedWeekSensor(VordisEntity, SensorEntity):
         return {"previous_week": data["prev_week"] // 60, "starts": data["starts"], "recording": self.box.conf.get("record_stats", True)}
 
 
-class MostPlayedSensor(VordisEntity, SensorEntity):
+class MostPlayedSensor(StoryBoxEntity, SensorEntity):
     """The card played the most in the last 30 days."""
 
     _attr_icon = "mdi:trophy-outline"
 
-    def __init__(self, entry: VordisConfigEntry) -> None:
+    def __init__(self, entry: StoryBoxConfigEntry) -> None:
         super().__init__(entry, "most_played")
 
     @property

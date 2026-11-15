@@ -1,4 +1,4 @@
-"""Tests for Vordísarvarpið, run against a real Home Assistant core."""
+"""Tests for NFC Story Box, run against a real Home Assistant core."""
 
 from __future__ import annotations
 
@@ -15,11 +15,11 @@ from homeassistant.setup import async_setup_component
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_mock_service
 
-from custom_components.vordisarvarpid.const import DOMAIN, EVENT_CARD_SCANNED
+from custom_components.nfc_story_box.const import DOMAIN, EVENT_CARD_SCANNED
 
 PLAYER = "media_player.vordis"
 CARDS = [
-    {"name": "Vordís Partí", "tag_id": "89-4A-71-E6", "media_id": "library://playlist/14", "media_type": "playlist", "shuffle": False},
+    {"name": "Party Playlist", "tag_id": "89-4A-71-E6", "media_id": "library://playlist/14", "media_type": "playlist", "shuffle": False},
     {"name": "Lína langsokkur", "tag_id": "AA-BB", "media_id": "library://audiobook/62", "media_type": "audiobook",
      "more_media": "library://audiobook/67\nlibrary://audiobook/27", "shuffle": False},
 ]
@@ -59,7 +59,7 @@ def calls(hass: HomeAssistant):
 async def _setup(hass: HomeAssistant, reader, **opts) -> MockConfigEntry:
     hass.states.async_set(PLAYER, "idle", {"volume_level": 0.5})
     entry = MockConfigEntry(
-        domain=DOMAIN, title="Vordísarvarpið", unique_id=reader.id,
+        domain=DOMAIN, title="NFC Story Box", unique_id=reader.id,
         data={
             "reader_device": reader.id, "player": PLAYER, "button_event": "event.vordis_button",
             "card_present": "binary_sensor.vordis_card", "start_volume": 0.3, "volume_step": 0.1,
@@ -90,8 +90,8 @@ async def test_known_card_plays_and_beeps(hass, reader, calls):
     assert calls["shuffle"][-1].data["shuffle"] is False
     play = calls["ma_play"][-1].data
     assert play["media_id"] == "library://playlist/14" and play["media_type"] == "playlist" and play["enqueue"] == "replace"
-    assert seen[-1]["known"] is True and seen[-1]["name"] == "Vordís Partí"
-    assert hass.states.get("sensor.vordisarvarpid_card_playing").state == "Vordís Partí"
+    assert seen[-1]["known"] is True and seen[-1]["name"] == "Party Playlist"
+    assert hass.states.get("sensor.nfc_story_box_card_playing").state == "Party Playlist"
     assert entry.runtime_data.store.data["last_tag"] == "89-4A-71-E6"
 
 
@@ -157,7 +157,7 @@ async def test_buttons_and_volume_limits(hass, reader, calls):
     hass.states.async_set("event.vordis_button", "2026-01-01T00:00:01", {"event_type": "volume_up"})
     await hass.async_block_till_done()
     assert calls["volume"][-1].data["volume_level"] == 0.6  # 0.5 + 0.1, capped at max 0.6
-    await hass.services.async_call("number", "set_value", {"entity_id": "number.vordisarvarpid_max_volume", "value": 0.55}, blocking=True)
+    await hass.services.async_call("number", "set_value", {"entity_id": "number.nfc_story_box_max_volume", "value": 0.55}, blocking=True)
     hass.states.async_set("event.vordis_button", "2026-01-01T00:00:02", {"event_type": "volume_up"})
     await hass.async_block_till_done()
     assert calls["volume"][-1].data["volume_level"] == 0.55
@@ -188,7 +188,7 @@ async def _lift(hass):
 
 async def test_pause_on_remove_switch(hass, reader, calls):
     entry = await _setup(hass, reader)
-    sw = "switch.vordisarvarpid_pause_when_the_card_is_lifted"
+    sw = "switch.nfc_story_box_pause_when_the_card_is_lifted"
     assert hass.states.get(sw).state == "on"  # on by default
     box = entry.runtime_data.box
 
@@ -211,7 +211,7 @@ async def test_keep_playing_per_card(hass, reader, calls):
     entry = await _setup(hass, reader)
     store = entry.runtime_data.store
     cards = [dict(c) for c in store.cards]
-    cards[0]["keep_playing"] = True  # Vordís Partí keeps playing; Lína langsokkur pauses
+    cards[0]["keep_playing"] = True  # Party Playlist keeps playing; Lína langsokkur pauses
     store.set_cards(cards)
     assert store.card_for_tag("89-4A-71-E6")["keep_playing"] is True
     assert store.card_for_tag("AA-BB")["keep_playing"] is False  # default
@@ -228,63 +228,68 @@ async def test_keep_playing_per_card(hass, reader, calls):
 async def test_websocket(hass, reader, calls, hass_ws_client):
     entry = await _setup(hass, reader)
     ws = await hass_ws_client(hass)
-    await ws.send_json({"id": 1, "type": "vordisarvarpid/get"})
+    await ws.send_json({"id": 1, "type": "nfc_story_box/get"})
     res = (await ws.receive_json())["result"]
-    assert [c["name"] for c in res["cards"]] == ["Vordís Partí", "Lína langsokkur"] and all(c["id"] for c in res["cards"])
+    assert [c["name"] for c in res["cards"]] == ["Party Playlist", "Lína langsokkur"] and all(c["id"] for c in res["cards"])
     cards = res["cards"]
-    await ws.send_json({"id": 2, "type": "vordisarvarpid/subscribe"})
+    await ws.send_json({"id": 2, "type": "nfc_story_box/subscribe"})
     assert (await ws.receive_json())["success"]
     cards.append({"name": "Nýtt", "tag_id": "CC", "media_id": "library://album/2", "media_type": "album"})
-    await ws.send_json({"id": 3, "type": "vordisarvarpid/save_cards", "cards": cards})
+    await ws.send_json({"id": 3, "type": "nfc_story_box/save_cards", "cards": cards})
     msg = await ws.receive_json()
     if msg.get("type") == "event":
         msg = await ws.receive_json()
     assert len(msg["result"]["cards"]) == 3
     first = cards[0]["id"]
-    await ws.send_json({"id": 4, "type": "vordisarvarpid/update", "labels": {first: {"title": "Partí!", "copies": 2}},
+    await ws.send_json({"id": 4, "type": "nfc_story_box/update", "labels": {first: {"title": "Partí!", "copies": 2}},
                         "settings": {"style": "pop"}, "names": {"spotify://x": {"name": "Bók"}}})
     while (m := await ws.receive_json()).get("id") != 4 or m.get("type") == "event":
         pass
     assert entry.runtime_data.store.data["labels"][first] == {"title": "Partí!", "copies": 2}
     assert entry.runtime_data.store.data["settings"]["style"] == "pop"
-    await ws.send_json({"id": 5, "type": "vordisarvarpid/play", "card": cards[2]})
+    await ws.send_json({"id": 5, "type": "nfc_story_box/play", "card": cards[2]})
     while (m := await ws.receive_json()).get("id") != 5 or m.get("type") == "event":
         pass
     assert m["success"] and calls["ma_play"][-1].data["media_id"] == "library://album/2"
 
 
-async def test_import_from_blueprint(hass, reader, calls):
-    auto = [{
-        "id": "1792006447703", "alias": "Miðlar - Vordísarvarpið: NFC spilari",
-        "use_blueprint": {"path": "tonaval/tonaval_nfc_spilari.yaml", "input": {
-            "reader_device": reader.id, "player": PLAYER, "button_event": "event.vordis_button",
-            "card_present": "binary_sensor.vordis_card", "cards": CARDS, "max_volume": 0.6,
-            "max_volume_entity": "input_number.max", "memory_helper": "input_text.last", "volume_step": 0.04,
-            "on_known_card": [{"action": "esphome.nfc_reader_play_sound", "data": {"sound": "success"}}],
-        }},
-    }]
-    await hass.async_add_executor_job(lambda: open(hass.config.path("automations.yaml"), "w").write(yaml.safe_dump(auto, allow_unicode=True)))
-    er.async_get(hass).async_get_or_create("automation", "automation", "1792006447703", suggested_object_id="tonaval")
-    hass.states.async_set("input_number.max", "0.45")
-    hass.states.async_set("input_text.last", "aa-bb")
+async def test_migrate_from_the_pre_release_version(hass, reader, calls):
+    from homeassistant.helpers.storage import Store
+
+    old = MockConfigEntry(
+        domain="vordisarvarpid", title="Old box", unique_id=reader.id,
+        data={"reader_device": reader.id, "player": PLAYER, "button_event": "event.vordis_button",
+              "card_present": "binary_sensor.vordis_card", "sound_service": "esphome.nfc_reader_play_sound"},
+        options={"daily_limit": 45},
+    )
+    old.add_to_hass(hass)
+    await Store(hass, 1, f"vordisarvarpid.{old.entry_id}").async_save(
+        {"cards": CARDS, "max_volume": 0.45, "last_tag": "AA-BB", "history": {}}
+    )
     hass.states.async_set(PLAYER, "idle", {"volume_level": 0.5})
 
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
     assert result["type"] is FlowResultType.MENU
-    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"next_step_id": "import_blueprint"})
-    assert result["type"] is FlowResultType.FORM and result["description_placeholders"]["cards"] == "2"
-    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"disable_automation": True})
-    assert result["type"] is FlowResultType.CREATE_ENTRY
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"next_step_id": "migrate"})
+    assert result["type"] is FlowResultType.FORM and result["step_id"] == "migrate"
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"migrate_from": old.entry_id, "name": "My box", "disable_legacy": True}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY and result["title"] == "My box"
     await hass.async_block_till_done()
     entry = hass.config_entries.async_entries(DOMAIN)[0]
-    assert entry.state is ConfigEntryState.LOADED and "import" not in entry.data
-    assert entry.data["sound_service"] == "esphome.nfc_reader_play_sound"
+    assert entry.state is ConfigEntryState.LOADED
+    assert entry.data["migrated"] and entry.data["sound_service"] == "esphome.nfc_reader_play_sound"
     data = entry.runtime_data.store.data
     assert len(data["cards"]) == 2 and data["max_volume"] == 0.45 and data["last_tag"] == "AA-BB"
-    assert calls["auto_off"][-1].data["entity_id"] == "automation.tonaval"
+    assert entry.options.get("daily_limit") == 45 or entry.data.get("daily_limit") == 45
+    assert old.disabled_by is not None
     # the moved cards work straight away
     await _scan(hass, reader, "89-4A-71-E6")
     assert calls["ma_play"][-1].data["media_id"] == "library://playlist/14"
+    # once moved, the earlier setup is no longer offered
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+    assert result["type"] is FlowResultType.FORM and result["step_id"] == "manual"
 
 
 async def test_manual_flow_and_options(hass, reader, calls):
@@ -344,8 +349,8 @@ async def test_play_card_action(hass, reader, calls):
 async def test_card_page_is_served(hass, reader, calls, hass_client):
     await _setup(hass, reader)
     client = await hass_client()
-    resp = await client.get("/vordisarvarpid_static/vordisarvarpid-kortamidar-card.js")
-    assert resp.status == 200 and "vordisarvarpid-kortamidar-card" in await resp.text()
+    resp = await client.get("/nfc_story_box_static/nfc-story-box-card.js")
+    assert resp.status == 200 and "nfc-story-box-card" in await resp.text()
 
 
 # ---- 1.1: fixes and new features
@@ -355,7 +360,7 @@ SERIES = ["library://audiobook/62", "library://audiobook/67", "library://audiobo
 
 @pytest.fixture(autouse=True)
 def no_seek_wait(monkeypatch):
-    monkeypatch.setattr("custom_components.vordisarvarpid.controller.SEEK_WAIT", 0)
+    monkeypatch.setattr("custom_components.nfc_story_box.controller.SEEK_WAIT", 0)
 
 
 def _set_cards(entry, **changes):
@@ -508,7 +513,7 @@ async def test_daily_limit(hass, reader, calls):
     assert len(calls["ma_play"]) == 1
     box._usage()["seconds"] = 31 * 60
     assert box.limit_reached
-    assert hass.states.get("sensor.vordisarvarpid_listened_today").attributes["limit"] == 30
+    assert hass.states.get("sensor.nfc_story_box_listened_today").attributes["limit"] == 30
     hass.states.async_set(PLAYER, "idle")
     await _scan(hass, reader, "AA-BB")
     assert len(calls["ma_play"]) == 1 and box.last_scan["blocked"] == "limit"
@@ -537,7 +542,7 @@ async def test_repair_notice_for_missing_speaker(hass, reader, calls):
 
 
 async def test_diagnostics(hass, reader, calls):
-    from custom_components.vordisarvarpid.diagnostics import async_get_config_entry_diagnostics
+    from custom_components.nfc_story_box.diagnostics import async_get_config_entry_diagnostics
 
     entry = await _setup(hass, reader)
     diag = await async_get_config_entry_diagnostics(hass, entry)
@@ -613,9 +618,9 @@ async def test_statistics_are_recorded(hass, reader, calls):
     day = stats["days"][today]
     assert 119 <= day["s"] <= 125 and day["m"] == day["s"] and day["t"] == 0 and day["n"] == 1
     assert 119 <= day["c"][card_id] <= 125 and PLAYER in day["p"]
-    assert stats["plays"][-1]["name"] == "Vordís Partí" and 119 <= stats["plays"][-1]["sec"] <= 125
-    assert stats["names"][card_id] == "Vordís Partí"
-    assert hass.states.get("sensor.vordisarvarpid_listened_this_week") is not None
+    assert stats["plays"][-1]["name"] == "Party Playlist" and 119 <= stats["plays"][-1]["sec"] <= 125
+    assert stats["names"][card_id] == "Party Playlist"
+    assert hass.states.get("sensor.nfc_story_box_listened_this_week") is not None
 
 
 async def test_story_time_counts_as_stories(hass, reader, calls):
@@ -642,7 +647,7 @@ async def test_statistics_can_be_switched_off(hass, reader, calls):
 def test_summary_numbers():
     from datetime import date
 
-    from custom_components.vordisarvarpid import stats as statlib
+    from custom_components.nfc_story_box import stats as statlib
 
     data = {"cards": [{"id": "a", "name": "A"}, {"id": "b", "name": "B"}, {"id": "c", "name": "C"}], "history": {"a": {"count": 3}}, "positions": {}}
     today = date(2026, 11, 15)  # a Sunday
@@ -670,13 +675,13 @@ async def test_statistics_websocket(hass, reader, calls, hass_ws_client):
     entry = await _setup(hass, reader)
     await _listen(hass, reader, entry.runtime_data.box, 150)
     client = await hass_ws_client(hass)
-    await client.send_json({"id": 1, "type": "vordisarvarpid/stats", "span": 7})
+    await client.send_json({"id": 1, "type": "nfc_story_box/stats", "span": 7})
     res = (await client.receive_json())["result"]
     assert res["span"] == 7 and len(res["series"]) == 7 and res["recording"] is True
-    assert res["cards"][0]["name"] == "Vordís Partí" and res["today"] >= 149
-    await client.send_json({"id": 2, "type": "vordisarvarpid/reset_stats"})
+    assert res["cards"][0]["name"] == "Party Playlist" and res["today"] >= 149
+    await client.send_json({"id": 2, "type": "nfc_story_box/reset_stats"})
     assert (await client.receive_json())["success"]
-    await client.send_json({"id": 3, "type": "vordisarvarpid/stats"})
+    await client.send_json({"id": 3, "type": "nfc_story_box/stats"})
     res = (await client.receive_json())["result"]
     assert res["total"] == 0 and res["cards"] == []
 
@@ -685,12 +690,12 @@ async def test_weekly_summary(hass, reader, calls):
     entry = await _setup(hass, reader, summary_notify="notify.phone")
     notes = async_mock_service(hass, "notify", "phone")
     events = []
-    hass.bus.async_listen("vordisarvarpid_weekly_summary", lambda e: events.append(e.data))
+    hass.bus.async_listen("nfc_story_box_weekly_summary", lambda e: events.append(e.data))
     await _listen(hass, reader, entry.runtime_data.box, 600)
     await hass.services.async_call(DOMAIN, "weekly_summary", {}, blocking=True)
     await hass.async_block_till_done()
-    assert events and events[-1]["favourite"] == "Vordís Partí" and events[-1]["minutes"] >= 9
-    assert notes and "Vordís Partí" in notes[-1].data["message"]
+    assert events and events[-1]["favourite"] == "Party Playlist" and events[-1]["minutes"] >= 9
+    assert notes and "Party Playlist" in notes[-1].data["message"]
 
 
 async def test_weekly_summary_to_several_devices(hass, reader, calls):
@@ -705,7 +710,7 @@ async def test_weekly_summary_to_several_devices(hass, reader, calls):
 
 @pytest.mark.parametrize(
     ("language", "expected"),
-    [("is", "Vordís hlustaði"), ("sv", "Vordís har lyssnat"), ("en", "This week the box played")],
+    [("is", "Tækið spilaði"), ("sv", "Lådan spelade"), ("en", "This week the box played")],
 )
 async def test_weekly_summary_language(hass, reader, calls, language, expected):
     hass.config.language = language

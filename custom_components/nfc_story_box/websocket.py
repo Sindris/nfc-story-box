@@ -60,17 +60,17 @@ def _guard(connection: websocket_api.ActiveConnection, msg: dict[str, Any], fn) 
     try:
         return fn()
     except Exception as err:  # noqa: BLE001 - reported to the page
-        connection.send_error(msg["id"], "vordisarvarpid_error", str(err))
+        connection.send_error(msg["id"], "nfc_story_box_error", str(err))
         return None
 
 
-@websocket_api.websocket_command({vol.Required("type"): "vordisarvarpid/list"})
+@websocket_api.websocket_command({vol.Required("type"): "nfc_story_box/list"})
 @callback
 def ws_list(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     connection.send_result(msg["id"], [entry_payload(e) for e in loaded_entries(hass)])
 
 
-@websocket_api.websocket_command({vol.Required("type"): "vordisarvarpid/get", ENTRY: str})
+@websocket_api.websocket_command({vol.Required("type"): "nfc_story_box/get", ENTRY: str})
 @callback
 def ws_get(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     result = _guard(connection, msg, lambda: _state(hass, msg.get("entry_id")))
@@ -80,7 +80,7 @@ def ws_get(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg:
 
 @websocket_api.require_admin
 @websocket_api.websocket_command(
-    {vol.Required("type"): "vordisarvarpid/save_cards", ENTRY: str, vol.Required("cards"): [dict]}
+    {vol.Required("type"): "nfc_story_box/save_cards", ENTRY: str, vol.Required("cards"): [dict]}
 )
 @callback
 def ws_save_cards(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
@@ -94,7 +94,7 @@ def ws_save_cards(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
 
 @websocket_api.websocket_command(
     {
-        vol.Required("type"): "vordisarvarpid/update",
+        vol.Required("type"): "nfc_story_box/update",
         ENTRY: str,
         vol.Optional("labels"): dict,
         vol.Optional("settings"): dict,
@@ -125,7 +125,7 @@ def ws_update(hass: HomeAssistant, connection: websocket_api.ActiveConnection, m
 
 
 @websocket_api.websocket_command(
-    {vol.Required("type"): "vordisarvarpid/play", ENTRY: str, vol.Required("card"): dict}
+    {vol.Required("type"): "nfc_story_box/play", ENTRY: str, vol.Required("card"): dict}
 )
 @websocket_api.async_response
 async def ws_play(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
@@ -143,23 +143,23 @@ async def ws_play(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
         else:
             await box.async_play_card(card)
     except Exception as err:  # noqa: BLE001
-        connection.send_error(msg["id"], "vordisarvarpid_error", str(err))
+        connection.send_error(msg["id"], "nfc_story_box_error", str(err))
         return
     connection.send_result(msg["id"])
 
 
-@websocket_api.websocket_command({vol.Required("type"): "vordisarvarpid/stop", ENTRY: str})
+@websocket_api.websocket_command({vol.Required("type"): "nfc_story_box/stop", ENTRY: str})
 @websocket_api.async_response
 async def ws_stop(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     try:
         await get_entry(hass, msg.get("entry_id")).runtime_data.box.async_stop_playback()
     except Exception as err:  # noqa: BLE001
-        connection.send_error(msg["id"], "vordisarvarpid_error", str(err))
+        connection.send_error(msg["id"], "nfc_story_box_error", str(err))
         return
     connection.send_result(msg["id"])
 
 
-@websocket_api.websocket_command({vol.Required("type"): "vordisarvarpid/subscribe", ENTRY: str})
+@websocket_api.websocket_command({vol.Required("type"): "nfc_story_box/subscribe", ENTRY: str})
 @callback
 def ws_subscribe(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     """Tell the page when cards change, a card is scanned or something starts playing."""
@@ -179,7 +179,7 @@ def ws_subscribe(hass: HomeAssistant, connection: websocket_api.ActiveConnection
 
 
 @websocket_api.websocket_command(
-    {vol.Required("type"): "vordisarvarpid/reset_position", ENTRY: str, vol.Required("card_id"): str}
+    {vol.Required("type"): "nfc_story_box/reset_position", ENTRY: str, vol.Required("card_id"): str}
 )
 @callback
 def ws_reset_position(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
@@ -195,7 +195,7 @@ def ws_reset_position(hass: HomeAssistant, connection: websocket_api.ActiveConne
 
 
 @websocket_api.websocket_command(
-    {vol.Required("type"): "vordisarvarpid/stats", ENTRY: str, vol.Optional("span", default=30): vol.All(int, vol.Range(min=7, max=90))}
+    {vol.Required("type"): "nfc_story_box/stats", ENTRY: str, vol.Optional("span", default=30): vol.All(int, vol.Range(min=7, max=90))}
 )
 @callback
 def ws_stats(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
@@ -216,7 +216,7 @@ def ws_stats(hass: HomeAssistant, connection: websocket_api.ActiveConnection, ms
 
 
 @websocket_api.require_admin
-@websocket_api.websocket_command({vol.Required("type"): "vordisarvarpid/reset_stats", ENTRY: str})
+@websocket_api.websocket_command({vol.Required("type"): "nfc_story_box/reset_stats", ENTRY: str})
 @callback
 def ws_reset_stats(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     entry = _guard(connection, msg, lambda: get_entry(hass, msg.get("entry_id")))

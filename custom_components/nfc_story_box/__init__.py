@@ -1,4 +1,4 @@
-"""Vordísarvarpið: an NFC music and story player for children, with printable card labels."""
+"""NFC Story Box: an NFC music and story player for children, with printable card labels."""
 
 from __future__ import annotations
 
@@ -10,7 +10,8 @@ import voluptuous as vol
 
 from homeassistant.components.frontend import add_extra_js_url
 from homeassistant.components.http import StaticPathConfig
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config_entries import ConfigEntry, ConfigEntryDisabler
+from homeassistant.helpers.storage import Store
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import ServiceValidationError
@@ -18,10 +19,12 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.typing import ConfigType
 
-from .config_flow import automation_entity
 from .const import (
     CARD_FILE,
     CONF_DAILY_LIMIT,
+    CONF_DISABLE_LEGACY,
+    CONF_MIGRATE_FROM,
+    LEGACY_DOMAIN,
     CONF_PAUSE_ON_REMOVE,
     CONF_QUIET_END,
     CONF_QUIET_MAX_VOLUME,
@@ -37,9 +40,9 @@ from .const import (
     LOADER_FILE,
     SIGNAL_UPDATED,
 )
-from .controller import VordisBox
-from .data import VordisConfigEntry, VordisData, get_entry
-from .store import VordisStore, norm_tag
+from .controller import StoryBox
+from .data import StoryBoxConfigEntry, RuntimeData, get_entry
+from .store import CardStore, clean_card
 from .websocket import async_register_websocket
 
 _LOGGER = logging.getLogger(__name__)
@@ -63,7 +66,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     await hass.http.async_register_static_paths(
         [StaticPathConfig(FRONTEND_URL, str(card.parent), cache_headers=False)]
     )
-    # A tiny loader goes on every dashboard, so "custom:vordisarvarpid-kortamidar-card" works without a
+    # A tiny loader goes on every dashboard, so "custom:nfc-story-box-card" works without a
     # resource entry; the card page itself is only fetched where the card is shown.
     add_extra_js_url(hass, f"{FRONTEND_URL}/{LOADER_FILE}?v={digest}")
     async_register_websocket(hass)
@@ -120,29 +123,25 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     return True
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: VordisConfigEntry) -> bool:
-    store = VordisStore(hass, entry.entry_id)
+async def async_setup_entry(hass: HomeAssistant, entry: StoryBoxConfigEntry) -> bool:
+    store = CardStore(hass, entry.entry_id)
     await store.async_load()
 
-    # one-time move of the cards etc. from the old blueprint automation
-    imported = entry.data.get("import")
-    if isinstance(imported, dict):
-        if imported.get("cards") and not store.cards:
-            store.set_cards(imported["cards"])
-        store.data["max_volume"] = imported.get("max_volume") or store.data["max_volume"]
-        if imported.get("last_tag"):
-            store.data["last_tag"] = norm_tag(imported["last_tag"])
-        await store.async_save_now()
-        if imported.get("disable_automation") and (ent := automation_entity(hass, imported.get("automation_id"))):
-            try:
-                await hass.services.async_call("automation", "turn_off", {"entity_id": ent, "stop_actions": False}, blocking=True)
-            except Exception as err:  # noqa: BLE001
-                _LOGGER.warning("Could not turn off %s: %s", ent, err)
-        data = {k: v for k, v in entry.data.items() if k != "import"}
+    # one-time move of cards, labels and history from the pre-release version of this integration
+    legacy_id = entry.data.get(CONF_MIGRATE_FROM)
+    if legacy_id and not entry.data.get("migrated"):
+        old = await Store(hass, 1, f"{LEGACY_DOMAIN}.{legacy_id}").async_load()
+        if isinstance(old, dict) and not store.cards:
+            store.data.update({k: v for k, v in old.items() if k in store.data})
+            store.data["cards"] = [clean_card(c) for c in store.data["cards"] if isinstance(c, dict)]
+            await store.async_save_now()
+        if entry.data.get(CONF_DISABLE_LEGACY) and hass.config_entries.async_get_entry(legacy_id):
+            await hass.config_entries.async_set_disabled_by(legacy_id, ConfigEntryDisabler.USER)
+        data = {k: v for k, v in entry.data.items() if k != CONF_DISABLE_LEGACY} | {"migrated": True}
         hass.config_entries.async_update_entry(entry, data=data)
 
-    box = VordisBox(hass, entry, store)
-    entry.runtime_data = VordisData(store, box)
+    box = StoryBox(hass, entry, store)
+    entry.runtime_data = RuntimeData(store, box)
     box.async_start()
     entry.async_on_unload(box.async_stop)
     box.applied_options = dict(entry.options)
@@ -151,7 +150,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: VordisConfigEntry) -> bo
     return True
 
 
-async def _options_updated(hass: HomeAssistant, entry: VordisConfigEntry) -> None:
+async def _options_updated(hass: HomeAssistant, entry: StoryBoxConfigEntry) -> None:
     box = entry.runtime_data.box
     old, new = box.applied_options, dict(entry.options)
     changed = {k for k in old.keys() | new.keys() if old.get(k) != new.get(k)}
@@ -162,10 +161,10 @@ async def _options_updated(hass: HomeAssistant, entry: VordisConfigEntry) -> Non
     await hass.config_entries.async_reload(entry.entry_id)
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: VordisConfigEntry) -> bool:
+async def async_unload_entry(hass: HomeAssistant, entry: StoryBoxConfigEntry) -> bool:
     await entry.runtime_data.store.async_save_now()
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    await VordisStore(hass, entry.entry_id).async_remove()
+    await CardStore(hass, entry.entry_id).async_remove()

@@ -8,10 +8,10 @@ from homeassistant.core import HomeAssistant
 
 from .const import VERSION
 from .controller import play_items
-from .data import VordisConfigEntry
+from .data import StoryBoxConfigEntry
 
 
-async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: VordisConfigEntry) -> dict[str, Any]:
+async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: StoryBoxConfigEntry) -> dict[str, Any]:
     box, store = entry.runtime_data.box, entry.runtime_data.store
     conf = {k: v for k, v in box.conf.items() if k != "import"}
     players = {p for p in (conf.get("player"), box.player, store.data.get("speaker")) if p}

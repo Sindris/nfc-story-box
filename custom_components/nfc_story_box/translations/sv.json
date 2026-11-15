@@ -2,23 +2,17 @@
   "config": {
     "step": {
       "user": {
-        "title": "Vordísarvarpið",
-        "description": "En automation från blueprinten ”Tónaval – NFC spilari” hittades.",
+        "title": "NFC Story Box",
+        "description": "En tidigare installation av den här integrationen hittades.",
         "menu_options": {
-          "import_blueprint": "Flytta över den: kort, högtalare och inställningar",
-          "manual": "Ställ in för hand"
-        }
-      },
-      "import_blueprint": {
-        "title": "Flytta från blueprinten",
-        "description": "Flyttar {cards} kort och alla inställningar från ”{automation}”. Därefter spelar integrationen korten; stäng av den gamla automationen så att de inte spelas två gånger.",
-        "data": {
-          "disable_automation": "Stäng av den gamla automationen"
+          "migrate": "Flytta över den: kort, historik och inställningar",
+          "manual": "Ställ in en ny låda"
         }
       },
       "manual": {
-        "title": "Vordísarvarpið",
+        "title": "NFC Story Box",
         "data": {
+          "name": "Lådans namn",
           "reader_device": "NFC-läsare",
           "player": "Högtalare (Music Assistant-spelare)",
           "button_event": "Knappar (event-entitet)",
@@ -31,17 +25,26 @@
           "only_speaker": "Spela bara på den här högtalaren",
           "phone_scan": "Spela även kort som skannas med en mobil"
         }
+      },
+      "migrate": {
+        "title": "Flytta en tidigare installation",
+        "description": "Tar över korten, etiketterna, historiken och inställningarna från den tidigare installationen. Den nya lådan får namnet nedan.",
+        "data": {
+          "migrate_from": "Tidigare installation",
+          "name": "Lådans namn",
+          "disable_legacy": "Stäng av den tidigare installationen (så att korten inte spelas två gånger)"
+        }
       }
     },
     "abort": {
       "already_configured": "Den här lådan är redan inställd.",
-      "import_incomplete": "Automationen har ingen läsare eller högtalare vald."
+      "nothing_to_migrate": "Det finns ingen tidigare installation att flytta."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Inställningar för Vordísarvarpið",
+        "title": "Inställningar för NFC Story Box",
         "description": "Ändringarna gäller direkt när du sparar. Kort, historik och statistik behålls.",
         "sections": {
           "speaker": {
@@ -215,7 +218,7 @@
   },
   "exceptions": {
     "not_set_up": {
-      "message": "Vordísarvarpið är inte inställt."
+      "message": "NFC Story Box är inte inställt."
     },
     "no_card": {
       "message": "Inget kort heter ”{card}”."
@@ -223,12 +226,12 @@
   },
   "issues": {
     "speaker_unavailable": {
-      "title": "Vordísarvarpið når inte sin högtalare",
+      "title": "NFC Story Box når inte sin högtalare",
       "description": "Ett kort lades på lådan, men högtalaren `{speaker}` saknas eller är otillgänglig, så ingenting spelades. Kontrollera att högtalaren är påslagen, eller välj en annan Music Assistant-spelare i integrationens inställningar."
     },
     "no_music_assistant": {
-      "title": "Vordísarvarpið behöver Music Assistant",
-      "description": "Korten spelas via Music Assistant, men den integrationen är inte inställd. Lägg till integrationen Music Assistant och ladda sedan om Vordísarvarpið."
+      "title": "NFC Story Box behöver Music Assistant",
+      "description": "Korten spelas via Music Assistant, men den integrationen är inte inställd. Lägg till integrationen Music Assistant och ladda sedan om NFC Story Box."
     }
   }
 }

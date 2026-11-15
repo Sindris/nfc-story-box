@@ -2,23 +2,17 @@
   "config": {
     "step": {
       "user": {
-        "title": "Vordísarvarpið",
-        "description": "A 'Tónaval – NFC spilari' blueprint automation was found.",
+        "title": "NFC Story Box",
+        "description": "An earlier setup of this integration was found.",
         "menu_options": {
-          "import_blueprint": "Move it over: cards, speaker and settings",
-          "manual": "Set up by hand"
-        }
-      },
-      "import_blueprint": {
-        "title": "Move from the blueprint",
-        "description": "Moves {cards} cards and all settings from „{automation}“. Afterwards the integration plays the cards; switch the old automation off so they don't play twice.",
-        "data": {
-          "disable_automation": "Switch the old automation off"
+          "migrate": "Move it over: cards, history and settings",
+          "manual": "Set up a new box"
         }
       },
       "manual": {
-        "title": "Vordísarvarpið",
+        "title": "NFC Story Box",
         "data": {
+          "name": "Name of the box",
           "reader_device": "NFC reader",
           "player": "Speaker (Music Assistant player)",
           "button_event": "Buttons (event entity)",
@@ -31,17 +25,26 @@
           "only_speaker": "Play only on this speaker",
           "phone_scan": "Also play cards scanned with a phone"
         }
+      },
+      "migrate": {
+        "title": "Move an earlier setup",
+        "description": "Takes over the cards, labels, history and settings of the earlier setup. The new box uses the name below.",
+        "data": {
+          "migrate_from": "Earlier setup",
+          "name": "Name of the box",
+          "disable_legacy": "Switch the earlier setup off (so cards don't play twice)"
+        }
       }
     },
     "abort": {
       "already_configured": "This box is already set up.",
-      "import_incomplete": "The automation has no reader or speaker chosen."
+      "nothing_to_migrate": "There is no earlier setup to move over."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Vordísarvarpið settings",
+        "title": "NFC Story Box settings",
         "description": "Changes apply as soon as you save. Cards, history and statistics are kept.",
         "sections": {
           "speaker": {
@@ -215,7 +218,7 @@
   },
   "exceptions": {
     "not_set_up": {
-      "message": "Vordísarvarpið is not set up."
+      "message": "NFC Story Box is not set up."
     },
     "no_card": {
       "message": "No card is called „{card}“."
@@ -223,12 +226,12 @@
   },
   "issues": {
     "speaker_unavailable": {
-      "title": "Vordísarvarpið can't reach its speaker",
+      "title": "NFC Story Box can't reach its speaker",
       "description": "A card was put on the box, but the speaker `{speaker}` is missing or unavailable, so nothing played. Check that the speaker is switched on, or choose another Music Assistant player in the integration's settings."
     },
     "no_music_assistant": {
-      "title": "Vordísarvarpið needs Music Assistant",
-      "description": "The cards are played through Music Assistant, but that integration is not set up. Add the Music Assistant integration and then reload Vordísarvarpið."
+      "title": "NFC Story Box needs Music Assistant",
+      "description": "The cards are played through Music Assistant, but that integration is not set up. Add the Music Assistant integration and then reload NFC Story Box."
     }
   }
 }

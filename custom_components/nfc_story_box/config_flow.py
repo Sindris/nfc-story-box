@@ -1,4 +1,4 @@
-"""Set up Vordísarvarpið: from the old blueprint automation, or by hand."""
+"""Set up NFC Story Box: by hand, or by moving over an earlier (pre-release) setup."""
 
 from __future__ import annotations
 
@@ -11,14 +11,14 @@ from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResu
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import section
 from homeassistant.helpers import device_registry as dr, entity_registry as er, selector
-from homeassistant.util.yaml import load_yaml
 
 from .const import (
-    BLUEPRINT_SUFFIX,
     CONF_BUTTON_EVENT,
     CONF_CARD_PRESENT,
     CONF_DAILY_LIMIT,
-    CONF_DISABLE_AUTOMATION,
+    CONF_DISABLE_LEGACY,
+    CONF_MIGRATE_FROM,
+    LEGACY_DOMAIN,
     CONF_QUIET_END,
     CONF_QUIET_MAX_VOLUME,
     CONF_QUIET_START,
@@ -111,7 +111,9 @@ def _schema(defaults: dict[str, Any]) -> vol.Schema:
     fields = _fields(defaults)
     keys = (CONF_READER_DEVICE, CONF_PLAYER, CONF_ONLY_SPEAKER, CONF_PHONE_SCAN, CONF_BUTTON_EVENT, CONF_CARD_PRESENT, CONF_START_VOLUME,
             CONF_VOLUME_STEP, CONF_PAUSE_ON_REMOVE, CONF_RESUME_SAME_CARD, CONF_SOUND_SERVICE)
-    return vol.Schema({fields[k][0]: fields[k][1] for k in keys})
+    schema = {vol.Required(CONF_NAME, default=DEFAULT_NAME): selector.TextSelector()}
+    schema.update({fields[k][0]: fields[k][1] for k in keys})
+    return vol.Schema(schema)
 
 
 def notify_options(hass: HomeAssistant) -> list[str]:
@@ -183,118 +185,72 @@ def sound_service_for(hass: HomeAssistant, device_id: str | None) -> str:
     return ""
 
 
-async def find_blueprint_automation(hass: HomeAssistant) -> dict[str, Any] | None:
-    """The automation made from the 'Tónaval – NFC spilari' blueprint, if there is one."""
-    path = hass.config.path("automations.yaml")
-
-    def _read() -> Any:
-        try:
-            return load_yaml(path)
-        except Exception as err:  # noqa: BLE001 - no file or not readable: nothing to import
-            _LOGGER.debug("Could not read %s: %s", path, err)
-            return None
-
-    data = await hass.async_add_executor_job(_read)
-    if not isinstance(data, list):
-        return None
-    for auto in data:
-        bp = auto.get("use_blueprint") if isinstance(auto, dict) else None
-        if isinstance(bp, dict) and str(bp.get("path", "")).endswith(BLUEPRINT_SUFFIX):
-            return auto
-    return None
+DEFAULT_NAME = "NFC Story Box"
+CONF_NAME = "name"
 
 
-def settings_from_automation(hass: HomeAssistant, auto: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Box settings and stored data (cards, max volume, last card) from the blueprint inputs."""
-    inp = dict(auto.get("use_blueprint", {}).get("input", {}))
-    settings: dict[str, Any] = {
-        CONF_READER_DEVICE: inp.get("reader_device"),
-        CONF_PLAYER: inp.get("player"),
-        CONF_BUTTON_EVENT: inp.get("button_event"),
-        CONF_CARD_PRESENT: inp.get("card_present"),
-        CONF_START_VOLUME: float(inp.get("start_volume", DEFAULT_START_VOLUME) or 0),
-        CONF_VOLUME_STEP: float(inp.get("volume_step", DEFAULT_VOLUME_STEP) or DEFAULT_VOLUME_STEP),
-        CONF_PAUSE_ON_REMOVE: bool(inp.get("pause_on_remove", True)),
-        CONF_RESUME_SAME_CARD: bool(inp.get("resume_same_card", True)),
-    }
-    sound = ""
-    for act in inp.get("on_known_card") or []:
-        name = act.get("action") or act.get("service") if isinstance(act, dict) else None
-        if name and name.endswith("_play_sound"):
-            sound = name
-    settings[CONF_SOUND_SERVICE] = sound or sound_service_for(hass, settings[CONF_READER_DEVICE])
-    max_volume = float(inp.get("max_volume", DEFAULT_MAX_VOLUME) or DEFAULT_MAX_VOLUME)
-    ent = inp.get("max_volume_entity")
-    if isinstance(ent, str) and (st := hass.states.get(ent)) is not None:
-        try:
-            max_volume = float(st.state)
-        except ValueError:
-            pass
-    last_tag = None
-    mem = inp.get("memory_helper")
-    if isinstance(mem, str) and (st := hass.states.get(mem)) is not None and st.state not in ("unknown", "unavailable", ""):
-        last_tag = st.state
-    stored = {"cards": list(inp.get("cards") or []), "max_volume": max_volume, "last_tag": last_tag}
-    return {k: v for k, v in settings.items() if v not in (None, "")}, stored
-
-
-def automation_entity(hass: HomeAssistant, auto_id: str | None) -> str | None:
-    if not auto_id:
-        return None
-    return er.async_get(hass).async_get_entity_id("automation", "automation", str(auto_id))
-
-
-class VordisConfigFlow(ConfigFlow, domain=DOMAIN):
+class StoryBoxConfigFlow(ConfigFlow, domain=DOMAIN):
     """Config flow."""
 
     VERSION = 1
 
-    def __init__(self) -> None:
-        self._auto: dict[str, Any] | None = None
-
     @staticmethod
     @callback
     def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
-        return VordisOptionsFlow()
+        return StoryBoxOptionsFlow()
+
+    def _legacy_entries(self) -> list[ConfigEntry]:
+        """Entries of the pre-release version that have not been moved over yet."""
+        moved = {e.data.get(CONF_MIGRATE_FROM) for e in self._async_current_entries(include_ignore=False)}
+        return [e for e in self.hass.config_entries.async_entries(LEGACY_DOMAIN) if e.entry_id not in moved]
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        self._auto = await find_blueprint_automation(self.hass)
-        if self._auto:
-            return self.async_show_menu(step_id="user", menu_options=["import_blueprint", "manual"])
+        if self._legacy_entries():
+            return self.async_show_menu(step_id="user", menu_options=["migrate", "manual"])
         return await self.async_step_manual()
 
-    async def async_step_import_blueprint(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        assert self._auto is not None
-        settings, stored = settings_from_automation(self.hass, self._auto)
-        if not settings.get(CONF_READER_DEVICE) or not settings.get(CONF_PLAYER):
-            return self.async_abort(reason="import_incomplete")
-        await self.async_set_unique_id(settings[CONF_READER_DEVICE])
-        self._abort_if_unique_id_configured()
-        name = self._auto.get("alias") or "Tónaval"
-        if user_input is None:
-            return self.async_show_form(
-                step_id="import_blueprint",
-                data_schema=vol.Schema({vol.Required(CONF_DISABLE_AUTOMATION, default=True): selector.BooleanSelector()}),
-                description_placeholders={"automation": name, "cards": str(len(stored["cards"]))},
-            )
-        data = {
-            **settings,
-            "import": {**stored, "automation_id": self._auto.get("id"),
-                       "disable_automation": bool(user_input.get(CONF_DISABLE_AUTOMATION, True))},
-        }
-        return self.async_create_entry(title="Vordísarvarpið", data=data)
+    async def async_step_migrate(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Take over the settings, cards and history of an earlier setup of this integration."""
+        legacy = {e.entry_id: e for e in self._legacy_entries()}
+        if not legacy:
+            return self.async_abort(reason="nothing_to_migrate")
+        if user_input is not None:
+            old = legacy[user_input[CONF_MIGRATE_FROM]]
+            await self.async_set_unique_id(old.unique_id or old.entry_id)
+            self._abort_if_unique_id_configured()
+            data = {
+                **old.data, **old.options,
+                CONF_MIGRATE_FROM: old.entry_id,
+                CONF_DISABLE_LEGACY: bool(user_input.get(CONF_DISABLE_LEGACY, True)),
+            }
+            data.pop("import", None)
+            return self.async_create_entry(title=str(user_input.get(CONF_NAME) or old.title).strip() or DEFAULT_NAME, data=data)
+        first = next(iter(legacy.values()))
+        schema = vol.Schema({
+            vol.Required(CONF_MIGRATE_FROM, default=first.entry_id): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=[selector.SelectOptionDict(value=k, label=e.title) for k, e in legacy.items()],
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
+            ),
+            vol.Required(CONF_NAME, default=first.title): selector.TextSelector(),
+            vol.Required(CONF_DISABLE_LEGACY, default=True): selector.BooleanSelector(),
+        })
+        return self.async_show_form(step_id="migrate", data_schema=schema)
 
     async def async_step_manual(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
-            await self.async_set_unique_id(user_input[CONF_READER_DEVICE])
+            data = dict(user_input)
+            title = str(data.pop(CONF_NAME, "") or "").strip() or DEFAULT_NAME
+            await self.async_set_unique_id(data[CONF_READER_DEVICE])
             self._abort_if_unique_id_configured()
-            if not user_input.get(CONF_SOUND_SERVICE):
-                user_input[CONF_SOUND_SERVICE] = sound_service_for(self.hass, user_input[CONF_READER_DEVICE])
-            return self.async_create_entry(title="Vordísarvarpið", data=user_input)
+            if not data.get(CONF_SOUND_SERVICE):
+                data[CONF_SOUND_SERVICE] = sound_service_for(self.hass, data[CONF_READER_DEVICE])
+            return self.async_create_entry(title=title, data=data)
         return self.async_show_form(step_id="manual", data_schema=_schema({}))
 
 
-class VordisOptionsFlow(OptionsFlow):
+class StoryBoxOptionsFlow(OptionsFlow):
     """Change the speaker, buttons and behaviour later."""
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:

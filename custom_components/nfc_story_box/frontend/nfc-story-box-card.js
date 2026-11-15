@@ -1,17 +1,17 @@
-// Vordísarvarpið – the card page for Home Assistant (served by the vordisarvarpid integration).
+// NFC Story Box – the card page for Home Assistant (served by the nfc_story_box integration).
 // One page for the box's NFC cards: what each card plays (searching Music Assistant), which NFC card
 // it is, and a printable label with its cover art (print or PDF).
 //
 // Card config:
-//   type: custom:vordisarvarpid-kortamidar-card
+//   type: custom:nfc-story-box-card
 //   entry_id: <config entry>                                (only with more than one box)
-//   brand: Vordísarvarpið                                   (optional small text on labels)
+//   brand: NFC Story Box                                   (optional small text on labels)
 //   style: big | classic                                    (default style, user can change it)
-//   return_text: Ef þú finnur mig: skilaðu mér til Vordísar ♥  (bottom line on the back labels)
+//   return_text: Ef þú finnur mig: skilaðu mér til eigandans ♥  (bottom line on the back labels)
 
 // Words and sentences in English and Swedish (the page itself is written in Icelandic).
 const _self = new URL(import.meta.url);
-const { tr, trHtml, T, setLang, lang, locale, pl } = await import(new URL("./vordisarvarpid-i18n.js" + _self.search, _self).href);
+const { tr, trHtml, T, setLang, lang, locale, pl } = await import(new URL("./nfc-story-box-i18n.js" + _self.search, _self).href);
 
 const CAT = {
   music: { bg: "#E8407F", chip: "Tónlist" },
@@ -61,7 +61,7 @@ const ICONS = {  // 24 x 24 paths
 };
 
 // The PDF library and the fonts ship with the integration, so printing works without the internet.
-const BASE = window.__VORDIS_BASE || "/vordisarvarpid_static/";
+const BASE = window.__NSB_BASE || "/nfc_story_box_static/";
 const JSPDF_URL = BASE + "vendor/jspdf.umd.min.js";
 const LATIN = "U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD";
 const LATIN_EXT = "U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF";
@@ -73,7 +73,7 @@ const FONTS = [
 ];
 const PRINT_PX = 300 / 25.4;   // 300 dpi
 const PREVIEW_PX = 140 / 25.4;
-const OPTS_KEY = "vordis-kortamidar-opts";
+const OPTS_KEY = "nsb-labels-opts";
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const isStory = (card) => ["audiobook", "podcast"].includes(card.media_type);
@@ -577,7 +577,7 @@ function drawBackSquare(item, opts, px, withBleed = true, img = null) {
     } else drawIcon(ctx, item.kind, pad + S / 2, sy + S / 2, S * 0.7, "rgba(23,40,74,.15)");
     ctx.fillStyle = "#17284A";
     const tx = pad + S + 3.5 * mm, tw = W - tx - pad;
-    const hint = tr(item.kind === "story" ? "Leggðu mig á Vordísarvarpið og hlustaðu á söguna" : "Leggðu mig á Vordísarvarpið og hlustaðu");
+    const hint = tr(item.kind === "story" ? "Leggðu mig á kassann og hlustaðu á söguna" : "Leggðu mig á kassann og hlustaðu");
     const h = fitTitle(ctx, hint, tw, mm, 4, 2.8, 4), lh = h.fs * 1.08 * mm;
     let y = sy + S / 2 - ((h.lines.length - 1) * lh) / 2 + h.fs * 0.3 * mm;
     for (const l of h.lines) { ctx.fillText(l, tx, y); y += lh; }
@@ -624,9 +624,9 @@ async function renderAll(entries, opts) {
   return out;
 }
 
-const PRINTED_KEY = "vordis-kortamidar-printed";
-const NAMES_KEY = "vordis-kortamidar-names";   // uri -> {name, image}: books outside your library (Spotify, Storytel)
-const RETURN_TEXT = "Ef þú finnur mig: skilaðu mér til Vordísar ♥";
+const PRINTED_KEY = "nsb-labels-printed";
+const NAMES_KEY = "nsb-labels-names";   // uri -> {name, image}: books outside your library (Spotify, Storytel)
+const RETURN_TEXT = "Ef þú finnur mig: skilaðu mér til eigandans ♥";
 const GROUPS = [["music", "Tónlist"], ["story", "Sögur"], ["control", "Stýrikort"]];
 const mediaOf = (c) => c.media_id || (c.media && c.media.media_content_id) || "";
 const moreOf = (c) => String(c.more_media || "").split("\n").map((x) => x.trim()).filter(Boolean);
@@ -679,9 +679,9 @@ function download(blob, name) {
 
 // ---------- the card ----------
 
-class VordisarvarpidKortamidarCard extends HTMLElement {
+class NfcStoryBoxCard extends HTMLElement {
   setConfig(config) {
-    this._config = { brand: "Vordísarvarpið", style: "big", ...config };
+    this._config = { brand: "NFC Story Box", style: "big", ...config };
     // Some phone apps don't tell the page how tall the navigation bar is: `safe_bottom: 48` keeps the buttons clear of it
     if (+this._config.safe_bottom > 0) {
       this.style.setProperty("--vk-safe-b", `max(env(safe-area-inset-bottom, 0px), var(--safe-area-inset-bottom, 0px), ${+this._config.safe_bottom}px)`);
@@ -751,7 +751,7 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
     const p = this._pending;
     if (!this._entryId || (!Object.keys(p.labels).length && !Object.keys(p.names).length && !p.settings)) return;
     this._pending = { labels: {}, names: {}, settings: null };
-    const msg = { type: "vordisarvarpid/update", entry_id: this._entryId };
+    const msg = { type: "nfc_story_box/update", entry_id: this._entryId };
     if (Object.keys(p.labels).length) msg.labels = p.labels;
     if (Object.keys(p.names).length) msg.names = p.names;
     if (p.settings) msg.settings = p.settings;
@@ -831,9 +831,9 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
     try {
       let st;
       try {
-        st = await this._hass.callWS({ type: "vordisarvarpid/get", ...(this._config.entry_id ? { entry_id: this._config.entry_id } : {}) });
+        st = await this._hass.callWS({ type: "nfc_story_box/get", ...(this._config.entry_id ? { entry_id: this._config.entry_id } : {}) });
       } catch (e) {
-        throw new Error("Vordísarvarpið samþættingin er ekki uppsett (Stillingar → Tæki og þjónustur).");
+        throw new Error("NFC Story Box samþættingin er ekki uppsett (Stillingar → Tæki og þjónustur).");
       }
       this._ent = st.entry; this._entryId = st.entry.entry_id;
       this._entry = this._config.config_entry_id || st.music_assistant_entry_id;
@@ -1051,7 +1051,7 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
           doc.roundedRect(p.x - o, p.y - o, st.w + 2 * o, st.h + 2 * o, st.r + o, st.r + o, "S");
         }
       }
-      download(doc.output("blob"), "vordisarvarpid-kortamidar.pdf");
+      download(doc.output("blob"), "nfc-story-box-labels.pdf");
       this._markPrinted();
       this._next = this._afterPrint(list.length);
       this._notice = missing ? "missing:" + missing : "done";
@@ -1068,7 +1068,7 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
       const { st, pos } = layout(this._drawOpts(), 10);
       const doc = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
       doc.setFontSize(9); doc.setTextColor(90);
-      doc.text("Vordisarvarpid - profunarblad. Prentadu i 100 % a venjulegan pappir, leggdu yfir limmidablad og berdu upp ad ljosi.", 105, 8, { align: "center" });
+      doc.text("NFC Story Box - profunarblad. Prentadu i 100 % a venjulegan pappir, leggdu yfir limmidablad og berdu upp ad ljosi.", 105, 8, { align: "center" });
       pos.forEach((p, i) => {
         doc.setDrawColor(232, 64, 127); doc.setLineWidth(0.3); doc.setLineDashPattern([], 0);
         doc.roundedRect(p.x, p.y, st.w, st.h, st.r, st.r, "S");
@@ -1076,7 +1076,7 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
         doc.setDrawColor(23, 40, 74); doc.line(cx - 4, cy, cx + 4, cy); doc.line(cx, cy - 4, cx, cy + 4);
         doc.setFontSize(14); doc.setTextColor(23, 40, 74); doc.text(String(i + 1), p.x + 4, p.y + 8);
       });
-      download(doc.output("blob"), "vordisarvarpid-profunarblad.pdf");
+      download(doc.output("blob"), "nfc-story-box-test-sheet.pdf");
     } catch (e) { this._error = "Gat ekki búið til prófunarblað: " + (e.message || e); this._render(); }
   }
 
@@ -1100,10 +1100,10 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
       img, svg { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       </style></head><body>${[...pages].map((imgsOnPage, n) => `<div class="pg">${(imgsOnPage || []).join("")}
       <svg style="position:absolute;left:0;top:0" width="210mm" height="297mm" viewBox="0 0 210 297">${cuts(n)}</svg></div>`).join("")}</body></html>`;
-    const old = document.getElementById("vordis-kortamidar-print");
+    const old = document.getElementById("nsb-labels-print");
     if (old) old.remove();
     const f = document.createElement("iframe");
-    f.id = "vordis-kortamidar-print";
+    f.id = "nsb-labels-print";
     f.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0";
     f.srcdoc = html;
     f.onload = () => {
@@ -1130,7 +1130,7 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
       const blob = await new Promise((r) => cv.toBlob(r, "image/jpeg", 0.88));
       let url;
       try {
-        const fd = new FormData(); fd.append("file", blob, "vordisarvarpid-midi.jpg");
+        const fd = new FormData(); fd.append("file", blob, "nfc-story-box-label.jpg");
         const resp = await this._hass.fetchWithAuth("/api/image/upload", { method: "POST", body: fd });
         if (!resp.ok) throw new Error(resp.status);
         const j = await resp.json();
@@ -1149,7 +1149,7 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
   _subscribe() {
     if (this._sub || !this._hass || !this._hass.connection || !this._entryId) return;
     this._sub = this._hass.connection.subscribeMessage((m) => this._onUpdate(m || {}),
-      { type: "vordisarvarpid/subscribe", entry_id: this._entryId }).catch(() => { this._sub = null; return null; });
+      { type: "nfc_story_box/subscribe", entry_id: this._entryId }).catch(() => { this._sub = null; return null; });
   }
 
   _onUpdate(m) {
@@ -1216,7 +1216,7 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
     if (other) { w.msg = `Þetta kort er þegar tengt við „${other.name}“. Leggðu annað kort á.`; w.bad = true; this._render(); return; }
     next.c.tag_id = tag;
     try {
-      const r = await this._hass.callWS({ type: "vordisarvarpid/save_cards", entry_id: this._entryId, cards: cards.map((c) => ({ ...c })) });
+      const r = await this._hass.callWS({ type: "nfc_story_box/save_cards", entry_id: this._entryId, cards: cards.map((c) => ({ ...c })) });
       this._saved = r.cards; this._edit = null; this._dirty = false;
       w.done.add(next.c.id); w.msg = `✓ „${next.c.name}“ tengt við ${tag}`; w.bad = false;
       try { await this._hass.callWS({ type: "tag/update", tag_id: tag, name: `${next.c.name} - Tag ${tag}` }); } catch (e) { /* the tag list may not have it yet */ }
@@ -1237,7 +1237,7 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
           ${it && it.preview ? `<img src="${it.preview}" alt="">` : `<div class="ph">＋</div>`}
           <div class="wiz-t"><span class="cap-l">Næsta kort · ${w.total - left.length + 1} af ${w.total}</span>
             <b>${esc(next.c.name || "(nýtt kort)")}</b>
-            <span class="msg">📡 Leggðu NFC-kortið sem á að vera „${esc(next.c.name || "þetta kort")}“ á Vordísarvarpið.</span></div>
+            <span class="msg">📡 Leggðu NFC-kortið sem á að vera „${esc(next.c.name || "þetta kort")}“ á kassann.</span></div>
         </div>` : `
         <div class="wiz-c done"><div class="wiz-t"><b>${n ? `Búið! ${n} kort tengd.` : "Öll kortin eru tengd."}</b>
           <span class="msg">${w.skip.size ? `${w.skip.size} sleppt – þau má tengja seinna.` : "Nú spila öll kortin þegar þau eru lögð á tækið."}</span></div></div>`}
@@ -1276,7 +1276,7 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
   async _play(c) {
     if (!c.action && !play_items_of(c).length) { this._msg = "Kortið spilar ekkert enn."; this._render(); return; }
     try {
-      await this._hass.callWS({ type: "vordisarvarpid/play", entry_id: this._entryId, card: { ...c } });
+      await this._hass.callWS({ type: "nfc_story_box/play", entry_id: this._entryId, card: { ...c } });
       if (c.action) { this._msg = `✓ „${c.name || "Kortið"}“ keyrt.`; this._render(); return; }
       this._playing = c.id;
       const p = c.player || (this._live || {}).speaker || this._input().player;
@@ -1286,7 +1286,7 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
   }
 
   async _stop() {
-    try { await this._hass.callWS({ type: "vordisarvarpid/stop", entry_id: this._entryId }); } catch (e) { /* ignore */ }
+    try { await this._hass.callWS({ type: "nfc_story_box/stop", entry_id: this._entryId }); } catch (e) { /* ignore */ }
     this._playing = null; this._msg = ""; this._render();
   }
 
@@ -1430,9 +1430,9 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
   }
 
   _export() {
-    const data = { app: "vordisarvarpid", version: 1, exported: new Date().toISOString(), cards: this._editCards() };
+    const data = { app: "nfc_story_box", version: 1, exported: new Date().toISOString(), cards: this._editCards() };
     download(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }),
-      `vordisarvarpid-kort-${new Date().toISOString().slice(0, 10)}.json`);
+      `nfc-story-box-cards-${new Date().toISOString().slice(0, 10)}.json`);
     this._msg = "Afrit sótt (Downloads)."; this._render();
   }
 
@@ -1626,7 +1626,7 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
     if (problems.length) { this._msg = "Ekki vistað: " + problems.join(" · "); this._render(); return; }
     this._saving = true; this._render();
     try {
-      const r = await this._hass.callWS({ type: "vordisarvarpid/save_cards", entry_id: this._entryId, cards: cards.map((c) => ({ ...c })) });
+      const r = await this._hass.callWS({ type: "nfc_story_box/save_cards", entry_id: this._entryId, cards: cards.map((c) => ({ ...c })) });
       this._saved = r.cards;
       // name real tags after their card, so Home Assistant's tag list shows the right name
       for (const c of this._saved) {
@@ -1651,7 +1651,7 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
     if (linked >= 0)
       return `<div class="scan ok-b">✓ <span>Kortið <b>${esc(s.id)}</b> er tengt við <b>„${esc(cards[linked].name || "nýja kortið")}“</b>. Ýttu á Vista breytingar.</span><button class="x" id="scanX" aria-label="Loka">✕</button></div>`;
     const missing = cards.map((c, i) => ({ c, i })).filter(({ c }) => !this._real(c.tag_id));
-    return `<div class="scan">📡 <span>Nýtt kort lagt á Vordísarvarpið: <b>${esc(s.id)}</b></span>
+    return `<div class="scan">📡 <span>Nýtt kort lagt á kassann: <b>${esc(s.id)}</b></span>
       <span class="flex"></span>
       ${missing.length ? `<span class="link">Tengja við
         <select id="scanTo">${missing.map(({ c, i }) => `<option value="${i}">${esc(c.name || "(nýtt kort)")}</option>`).join("")}</select>
@@ -1719,7 +1719,7 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
     }).join("");
     return `
       <div class="top">
-        <div class="ttl"><h2>${esc(this._ent ? this._ent.title : "Vordísarvarpið")}</h2>
+        <div class="ttl"><h2>${esc(this._ent ? this._ent.title : "NFC Story Box")}</h2>
           <span class="msg">${items.length} kort · ${sel.length} valin til prentunar${curName ? ` · ♪ ${esc(curName)}` : ""}</span></div>
         <span class="flex"></span>
         <button class="sec" id="addCard">+ Nýtt kort</button>
@@ -1739,7 +1739,7 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
         <button class="x" id="msgX" aria-label="Loka">✕</button></div>` : ""}
       ${this._error ? `<div class="err">${esc(this._error)}</div>` : ""}
       ${this._loading && !items.length ? `<div class="msg">Sæki kort og myndir…</div>` : ""}
-      ${this._loaded && !items.length ? `<div class="empty">Engin kort enn. Ýttu á <b>+ Nýtt kort</b> eða leggðu kort á Vordísarvarpið.</div>` : ""}
+      ${this._loaded && !items.length ? `<div class="empty">Engin kort enn. Ýttu á <b>+ Nýtt kort</b> eða leggðu kort á kassann.</div>` : ""}
       ${items.length ? `<div class="selbar">
         <button class="sec sm" id="selAll">Velja allt</button>
         <button class="sec sm" id="selNone">Ekkert</button>
@@ -1871,8 +1871,8 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
       <label class="fld"><span>Heiti kortsins</span><input type="text" data-e="name" data-i="${i}" value="${esc(c.name || "")}" placeholder="t.d. Lína langsokkur"></label>
       <label class="fld"><span>NFC kort</span>
         <span class="rowc"><select data-e="tag_id" data-i="${i}">${tagOpts.join("")}</select>
-        <button class="sec sm" data-newest="${i}" title="Leggðu kortið á Vordísarvarpið fyrst">Nota síðasta skannaða</button></span></label>
-      <div class="msg small">${real ? "✓ Þetta kort hefur verið lagt á Vordísarvarpið." : "Leggðu nýja kortið á Vordísarvarpið og veldu það hér, eða notaðu „Tengja við“ sem birtist efst á síðunni."}</div>
+        <button class="sec sm" data-newest="${i}" title="Leggðu kortið á kassann fyrst">Nota síðasta skannaða</button></span></label>
+      <div class="msg small">${real ? "✓ Þetta kort hefur verið lagt á kassann." : "Leggðu nýja kortið á kassann og veldu það hér, eða notaðu „Tengja við“ sem birtist efst á síðunni."}</div>
       <div class="sep"></div>
       <div class="row-end"><button class="sec sm danger" data-del="${i}">Eyða korti</button></div>
     </div>`;
@@ -1943,7 +1943,7 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
         </details>
         ${n ? this._renderSheet(st) : `<div class="msg">Engin kort valin. Hakaðu við kortin sem á að prenta.</div>`}
         ${this._notice === "busy" ? `<div class="notice">Bý til PDF með ${n} miðum…</div>` : ""}
-        ${this._notice === "done" ? `<div class="notice">PDF tilbúið: <b>vordisarvarpid-kortamidar.pdf</b> er í niðurhali (Downloads). Prentaðu í 100 %.${nxt}</div>` : ""}
+        ${this._notice === "done" ? `<div class="notice">PDF tilbúið: <b>nfc-story-box-labels.pdf</b> er í niðurhali (Downloads). Prentaðu í 100 %.${nxt}</div>` : ""}
         ${this._notice === "printed" ? `<div class="notice">Sent í prentun. Veldu 100 % (raunstærð) í prentglugganum.${nxt}</div>` : ""}
         ${String(this._notice).startsWith("missing:") ? `<div class="notice">PDF tilbúið, en ${this._notice.split(":")[1]} mynd(ir) náðust ekki frá Music Assistant. Opnaðu kortið og veldu aðra mynd.${nxt}</div>` : ""}
         ${this._notice === "app" ? `<div class="notice">Appið getur ekki prentað beint. Notaðu <b>Sækja PDF</b> og prentaðu skrána.</div>` : ""}
@@ -2011,16 +2011,16 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
       const i = +el.dataset.tile, it = items[i];
       el.onclick = () => { this._scanned = null; this._openPanel(i, this._ptab || "spilar"); };
       el.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); el.onclick(); } };
-      el.ondragstart = (e) => { e.dataTransfer.setData("text/x-vordis-card", String(i)); e.dataTransfer.effectAllowed = "move"; };
+      el.ondragstart = (e) => { e.dataTransfer.setData("text/x-nsb-card", String(i)); e.dataTransfer.effectAllowed = "move"; };
       el.ondragover = (e) => {
         const t = [...e.dataTransfer.types];
-        if (t.includes("Files") || t.includes("text/x-vordis-card")) { e.preventDefault(); el.classList.add("over"); }
+        if (t.includes("Files") || t.includes("text/x-nsb-card")) { e.preventDefault(); el.classList.add("over"); }
       };
       el.ondragleave = () => el.classList.remove("over");
       el.ondrop = (e) => {
         e.preventDefault(); el.classList.remove("over");
         if (e.dataTransfer.files && e.dataTransfer.files.length) { this._setImage(it, e.dataTransfer.files[0]); return; }
-        const from = parseInt(e.dataTransfer.getData("text/x-vordis-card"), 10);
+        const from = parseInt(e.dataTransfer.getData("text/x-nsb-card"), 10);
         if (!isNaN(from)) this._drop(from, i);
       };
     });
@@ -2050,13 +2050,13 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
       this._change(+el.dataset.i, el.dataset.e, el.dataset.e === "more_media" ? el.value.split("\n").map((x) => x.trim()).filter(Boolean).join("\n") : v);
     });
     q("[data-forget]").forEach((el) => el.onclick = async () => {
-      try { await this._hass.callWS({ type: "vordisarvarpid/reset_position", entry_id: this._entryId, card_id: el.dataset.forget }); } catch (e) { /* ignore */ }
+      try { await this._hass.callWS({ type: "nfc_story_box/reset_position", entry_id: this._entryId, card_id: el.dataset.forget }); } catch (e) { /* ignore */ }
       delete this._positions[el.dataset.forget]; this._render();
     });
     q("[data-newest]").forEach((el) => el.onclick = async () => {
       await this._loadTags();
       const i = +el.dataset.newest, t = (this._tags || [])[0];
-      if (!t) { this._msg = "Ekkert kort hefur verið lagt á Vordísarvarpið."; this._render(); return; }
+      if (!t) { this._msg = "Ekkert kort hefur verið lagt á kassann."; this._render(); return; }
       const other = this._editCards().findIndex((c, k) => k !== i && c.tag_id === t.id);
       this._change(i, "tag_id", t.id);
       this._msg = other >= 0 ? `Athugið: ${t.id} er líka á „${this._editCards()[other].name}“.` : `Tengt við ${t.id}.`;
@@ -2405,17 +2405,17 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
   }
 }
 
-// Loaded through vordisarvarpid-loader.js the page is the inner element of the card;
+// Loaded through nfc-story-box-loader.js the page is the inner element of the card;
 // loaded on its own (as a dashboard resource, or in tests) it is the card itself.
-const TAG = "vordisarvarpid-kortamidar-card" + (window.__VORDIS_LOADER ? "-impl" : "");
+const TAG = "nfc-story-box-card" + (window.__NSB_LOADER ? "-impl" : "");
 if (!customElements.get(TAG)) {
-  customElements.define(TAG, VordisarvarpidKortamidarCard);
-  if (!window.__VORDIS_LOADER) {
+  customElements.define(TAG, NfcStoryBoxCard);
+  if (!window.__NSB_LOADER) {
     window.customCards = window.customCards || [];
     window.customCards.push({
       type: TAG,
-      name: "Vordísarvarpið",
-      description: "Kortin á Vordísarvarpinu: hvað þau spila og prentanlegir miðar með forsíðumyndum.",
+      name: "NFC Story Box",
+      description: "Kortin á kassanum: hvað þau spila og prentanlegir miðar með forsíðumyndum.",
     });
   }
 }

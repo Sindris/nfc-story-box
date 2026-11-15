@@ -8,15 +8,15 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .const import MIN_VOLUME
-from .data import VordisConfigEntry
-from .entity import VordisEntity
+from .data import StoryBoxConfigEntry
+from .entity import StoryBoxEntity
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: VordisConfigEntry, add: AddConfigEntryEntitiesCallback) -> None:
+async def async_setup_entry(hass: HomeAssistant, entry: StoryBoxConfigEntry, add: AddConfigEntryEntitiesCallback) -> None:
     add([MaxVolumeNumber(entry)])
 
 
-class MaxVolumeNumber(VordisEntity, NumberEntity):
+class MaxVolumeNumber(StoryBoxEntity, NumberEntity):
     _attr_icon = "mdi:volume-high"
     _attr_native_min_value = MIN_VOLUME
     _attr_native_max_value = 1.0
@@ -24,7 +24,7 @@ class MaxVolumeNumber(VordisEntity, NumberEntity):
     _attr_mode = NumberMode.SLIDER
     _attr_entity_category = EntityCategory.CONFIG
 
-    def __init__(self, entry: VordisConfigEntry) -> None:
+    def __init__(self, entry: StoryBoxConfigEntry) -> None:
         super().__init__(entry, "max_volume")
 
     @property

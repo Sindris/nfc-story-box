@@ -2,23 +2,17 @@
   "config": {
     "step": {
       "user": {
-        "title": "Vordísarvarpið",
-        "description": "Fann sjálfvirkni sem notar „Tónaval – NFC spilari“ blueprint.",
+        "title": "NFC Story Box",
+        "description": "Fann eldri uppsetningu á þessari samþættingu.",
         "menu_options": {
-          "import_blueprint": "Flytja hana yfir: kort, hátalara og stillingar",
-          "manual": "Setja upp handvirkt"
-        }
-      },
-      "import_blueprint": {
-        "title": "Flytja úr blueprint",
-        "description": "Flytur {cards} kort og allar stillingar úr „{automation}“. Eftir það sér samþættingin um að spila kortin; slökktu á gömlu sjálfvirkninni svo þau spilist ekki tvisvar.",
-        "data": {
-          "disable_automation": "Slökkva á gömlu sjálfvirkninni"
+          "migrate": "Flytja hana yfir: kort, saga og stillingar",
+          "manual": "Setja upp nýtt tæki"
         }
       },
       "manual": {
-        "title": "Vordísarvarpið",
+        "title": "NFC Story Box",
         "data": {
+          "name": "Nafn tækisins",
           "reader_device": "NFC lesari",
           "player": "Hátalari (aðeins Music Assistant spilarar)",
           "button_event": "Takkar (event-eining)",
@@ -31,17 +25,26 @@
           "only_speaker": "Spila bara á þessum hátalara",
           "phone_scan": "Spila líka kort sem skönnuð eru með síma"
         }
+      },
+      "migrate": {
+        "title": "Flytja eldri uppsetningu",
+        "description": "Tekur yfir kort, miða, sögu og stillingar eldri uppsetningarinnar. Nýja tækið fær nafnið hér að neðan.",
+        "data": {
+          "migrate_from": "Eldri uppsetning",
+          "name": "Nafn tækisins",
+          "disable_legacy": "Slökkva á eldri uppsetningunni (svo kortin spilist ekki tvisvar)"
+        }
       }
     },
     "abort": {
       "already_configured": "Þetta tæki er þegar uppsett.",
-      "import_incomplete": "Sjálfvirknin hefur engan lesara eða hátalara valinn."
+      "nothing_to_migrate": "Engin eldri uppsetning er til að flytja."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Stillingar Vordísarvarpsins",
+        "title": "Stillingar NFC Story Box",
         "description": "Breytingarnar taka gildi um leið og þú vistar. Kort, saga og tölfræði haldast.",
         "sections": {
           "speaker": {
@@ -215,7 +218,7 @@
   },
   "exceptions": {
     "not_set_up": {
-      "message": "Vordísarvarpið er ekki uppsett."
+      "message": "NFC Story Box er ekki uppsett."
     },
     "no_card": {
       "message": "Ekkert kort heitir „{card}“."
@@ -223,12 +226,12 @@
   },
   "issues": {
     "speaker_unavailable": {
-      "title": "Vordísarvarpið nær ekki í hátalarann",
+      "title": "NFC Story Box nær ekki í hátalarann",
       "description": "Kort var lagt á tækið en hátalarinn `{speaker}` finnst ekki eða er ótengdur, svo ekkert spilaðist. Athugaðu að kveikt sé á hátalaranum eða veldu annan Music Assistant spilara í stillingum samþættingarinnar."
     },
     "no_music_assistant": {
-      "title": "Vordísarvarpið þarf Music Assistant",
-      "description": "Kortin eru spiluð í gegnum Music Assistant en sú samþætting er ekki uppsett. Bættu Music Assistant við og endurhladdu svo Vordísarvarpinu."
+      "title": "NFC Story Box þarf Music Assistant",
+      "description": "Kortin eru spiluð í gegnum Music Assistant en sú samþætting er ekki uppsett. Bættu Music Assistant við og endurhladdu svo NFC Story Box."
     }
   }
 }

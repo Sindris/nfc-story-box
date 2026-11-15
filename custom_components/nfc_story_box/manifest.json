@@ -1,14 +1,14 @@
 {
-  "domain": "vordisarvarpid",
-  "name": "Vordísarvarpið",
+  "domain": "nfc_story_box",
+  "name": "NFC Story Box",
   "after_dependencies": ["esphome", "music_assistant", "tag"],
   "codeowners": ["@Sindris"],
   "config_flow": true,
   "dependencies": ["frontend", "http", "websocket_api"],
-  "documentation": "https://github.com/Sindris/vordisarvarpid",
+  "documentation": "https://github.com/Sindris/nfc-story-box",
   "integration_type": "device",
   "iot_class": "local_push",
-  "issue_tracker": "https://github.com/Sindris/vordisarvarpid/issues",
+  "issue_tracker": "https://github.com/Sindris/nfc-story-box/issues",
   "requirements": [],
-  "version": "1.3.1"
+  "version": "2.0.0"
 }

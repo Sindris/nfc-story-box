@@ -9,14 +9,14 @@ play_card:
       required: false
       selector:
         config_entry:
-          integration: vordisarvarpid
+          integration: nfc_story_box
 stop:
   fields:
     entry_id:
       required: false
       selector:
         config_entry:
-          integration: vordisarvarpid
+          integration: nfc_story_box
 sleep_timer:
   fields:
     minutes:
@@ -31,7 +31,7 @@ sleep_timer:
       required: false
       selector:
         config_entry:
-          integration: vordisarvarpid
+          integration: nfc_story_box
 set_speaker:
   fields:
     player:
@@ -44,11 +44,11 @@ set_speaker:
       required: false
       selector:
         config_entry:
-          integration: vordisarvarpid
+          integration: nfc_story_box
 weekly_summary:
   fields:
     entry_id:
       required: false
       selector:
         config_entry:
-          integration: vordisarvarpid
+          integration: nfc_story_box

@@ -10,23 +10,23 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .const import CONF_PAUSE_ON_REMOVE, CONF_RECORD_STATS
-from .data import VordisConfigEntry
-from .entity import VordisEntity
+from .data import StoryBoxConfigEntry
+from .entity import StoryBoxEntity
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: VordisConfigEntry, add: AddConfigEntryEntitiesCallback) -> None:
+async def async_setup_entry(hass: HomeAssistant, entry: StoryBoxConfigEntry, add: AddConfigEntryEntitiesCallback) -> None:
     add([
         OptionSwitch(entry, CONF_PAUSE_ON_REMOVE, "mdi:pause-circle-outline", default=True),
         OptionSwitch(entry, CONF_RECORD_STATS, "mdi:chart-bar", default=True),
     ])
 
 
-class OptionSwitch(VordisEntity, SwitchEntity):
+class OptionSwitch(StoryBoxEntity, SwitchEntity):
     """A switch backed by one of the integration's options, so it and the options form never disagree."""
 
     _attr_entity_category = EntityCategory.CONFIG
 
-    def __init__(self, entry: VordisConfigEntry, option: str, icon: str, *, default: bool) -> None:
+    def __init__(self, entry: StoryBoxConfigEntry, option: str, icon: str, *, default: bool) -> None:
         super().__init__(entry, option)
         self._option, self._default = option, default
         self._attr_icon = icon

@@ -7,14 +7,14 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import Entity
 
 from .const import DOMAIN, SIGNAL_UPDATED, VERSION
-from .data import VordisConfigEntry
+from .data import StoryBoxConfigEntry
 
 
-class VordisEntity(Entity):
+class StoryBoxEntity(Entity):
     _attr_has_entity_name = True
     _attr_should_poll = False
 
-    def __init__(self, entry: VordisConfigEntry, key: str) -> None:
+    def __init__(self, entry: StoryBoxConfigEntry, key: str) -> None:
         self.entry = entry
         self.box = entry.runtime_data.box
         self._attr_unique_id = f"{entry.entry_id}_{key}"
@@ -22,8 +22,8 @@ class VordisEntity(Entity):
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
             name=entry.title,
-            manufacturer="Vordísarvarpið",
-            model="NFC spilari",
+            manufacturer="NFC Story Box",
+            model="NFC card player",
             sw_version=VERSION,
         )
 

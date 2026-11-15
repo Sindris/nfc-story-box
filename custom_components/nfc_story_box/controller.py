@@ -61,7 +61,7 @@ from .const import (
     MIN_VOLUME,
     SIGNAL_UPDATED,
 )
-from .store import VordisStore, is_story, norm_tag, remembers
+from .store import CardStore, is_story, norm_tag, remembers
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -89,10 +89,10 @@ def _parse_time(value: Any) -> dtime | None:
         return None
 
 
-class VordisBox:
-    """One Vordísarvarpið box: an NFC reader, its buttons and a speaker."""
+class StoryBox:
+    """One NFC Story Box: an NFC reader, its buttons and a speaker."""
 
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, store: VordisStore) -> None:
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, store: CardStore) -> None:
         self.hass = hass
         self.entry = entry
         self.store = store
@@ -276,10 +276,10 @@ class VordisBox:
         language = str(self.hass.config.language or "").lower()
         if language.startswith("is"):
             spent = f"{hours} klst. {mins} mín." if hours else f"{mins} mín."
-            message = f"Vordís hlustaði í {spent} þessa viku." + (f" Vinsælast: {top}." if top else "")
+            message = f"Tækið spilaði í {spent} þessa viku." + (f" Vinsælast: {top}." if top else "")
         elif language.startswith("sv"):
             spent = f"{hours} tim {mins} min" if hours else f"{mins} min"
-            message = f"Vordís har lyssnat i {spent} den här veckan." + (f" Mest spelat: {top}." if top else "")
+            message = f"Lådan spelade i {spent} den här veckan." + (f" Mest spelat: {top}." if top else "")
         else:
             spent = f"{hours} h {mins} min" if hours else f"{mins} min"
             message = f"This week the box played {spent}." + (f" Favourite: {top}." if top else "")
@@ -287,7 +287,7 @@ class VordisBox:
         self.hass.bus.async_fire(EVENT_WEEKLY_SUMMARY, payload)
         for service in notify_targets(self.conf.get(CONF_SUMMARY_NOTIFY)):
             domain, name = service.split(".", 1)
-            await self._call(domain, name, {"message": message, "title": "Vordísarvarpið"}, quiet=True)
+            await self._call(domain, name, {"message": message, "title": self.entry.title}, quiet=True)
         return payload
 
     @callback

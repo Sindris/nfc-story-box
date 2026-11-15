@@ -1,5 +1,23 @@
 # Changelog
 
+## 2.0.0
+
+Changed (breaking)
+- The integration is now called **NFC Story Box** (domain `nfc_story_box`), so it can be shared. Everything
+  that carried the old name changed with it: actions (`nfc_story_box.play_card` …), events
+  (`nfc_story_box_card_scanned`, `nfc_story_box_weekly_summary`), the cards (`custom:nfc-story-box-card`,
+  `custom:nfc-story-box-stats-card`) and the websocket commands.
+- Setting up a box now asks for a name; the weekly summary and cards use that name instead of a fixed one.
+- Card label defaults are neutral (brand "NFC Story Box", return text "…return me to my owner"); set
+  `brand` and `return_text` in the card's YAML to personalise them.
+
+Added
+- *Move it over* when adding the integration: takes the cards, labels, history and settings from the
+  pre-release version (`vordisarvarpid`) and switches it off.
+
+Removed
+- The one-time import from the old blueprint automation.
+
 ## 1.3.1
 
 Added
@@ -58,14 +76,14 @@ Fixed
 ## 1.2.0
 
 New
-- **Statistics card** `custom:vordisarvarpid-tolfraedi-card`: today / this week / daily average / plays,
+- **Statistics card** `custom:nfc-story-box-stats-card`: today / this week / daily average / plays,
   a bar chart per day (music and stories), most played cards, cards not played for 30+ days,
   a weekday × hour heat map, stories in progress, time per speaker and the latest plays.
 - Listening is logged per day (card, hour, speaker, music or story) and kept for 90 days.
 - Sensors "Listened this week" and "Most played card"; switch "Record statistics".
-- Weekly summary on Sundays at 18:00: event `vordisarvarpid_weekly_summary`, plus a notification if an
-  action is set in the settings; also available as the action `vordisarvarpid.weekly_summary`.
-- Websocket commands `vordisarvarpid/stats` and `vordisarvarpid/reset_stats` (admin).
+- Weekly summary on Sundays at 18:00: event `nfc_story_box_weekly_summary`, plus a notification if an
+  action is set in the settings; also available as the action `nfc_story_box.weekly_summary`.
+- Websocket commands `nfc_story_box/stats` and `nfc_story_box/reset_stats` (admin).
 
 ## 1.1.0
 
@@ -77,7 +95,7 @@ New
 - "Listened today" sensor, play counts and history per card.
 - Card page: link all NFC cards one after another; status line; control cards group.
 - Diagnostics download and repair notices (speaker unavailable, Music Assistant missing).
-- Actions `vordisarvarpid.sleep_timer` and `vordisarvarpid.set_speaker`.
+- Actions `nfc_story_box.sleep_timer` and `nfc_story_box.set_speaker`.
 
 Changed
 - The same card put back while it is still playing no longer restarts it.

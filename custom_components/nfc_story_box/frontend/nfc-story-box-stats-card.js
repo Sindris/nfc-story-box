@@ -1,15 +1,15 @@
-// Vordísarvarpið – statistics card for Home Assistant (served by the vordisarvarpid integration).
+// NFC Story Box – statistics card for Home Assistant (served by the nfc_story_box integration).
 // How much the box is used: today and this week, a bar per day (music and stories), the cards played
 // most, when it is used, stories in progress, speakers and the latest plays.
 //
 // Card config:
-//   type: custom:vordisarvarpid-tolfraedi-card
+//   type: custom:nfc-story-box-stats-card
 //   entry_id: <config entry>      (only with more than one box)
 //   span: 30                      (7, 30 or 90 days; the page can change it)
 //   title: Tölfræði               (optional)
 
 const _self = new URL(import.meta.url);
-const { trHtml, setLang, locale, dayNames, monthNames } = await import(new URL("./vordisarvarpid-i18n.js" + _self.search, _self).href);
+const { trHtml, setLang, locale, dayNames, monthNames } = await import(new URL("./nfc-story-box-i18n.js" + _self.search, _self).href);
 
 const MUSIC = "#E8407F";
 const STORY = "#2EC4B6";
@@ -85,7 +85,7 @@ const CSS = `
   .err { color:#d9534f; padding:8px 0; }
 `;
 
-class VordisarvarpidTolfraediCard extends HTMLElement {
+class NfcStoryBoxStatsCard extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
@@ -124,8 +124,8 @@ class VordisarvarpidTolfraediCard extends HTMLElement {
     if (!this._hass) return;
     try {
       const [stats, info] = await Promise.all([
-        this._hass.callWS({ type: "vordisarvarpid/stats", span: this._span, ...this._entry }),
-        this._info || this._hass.callWS({ type: "vordisarvarpid/get", ...this._entry }),
+        this._hass.callWS({ type: "nfc_story_box/stats", span: this._span, ...this._entry }),
+        this._info || this._hass.callWS({ type: "nfc_story_box/get", ...this._entry }),
       ]);
       this._data = stats; this._info = info; this._error = "";
     } catch (e) {
@@ -205,7 +205,7 @@ class VordisarvarpidTolfraediCard extends HTMLElement {
     if (reset) reset.addEventListener("click", async () => {
       if (!this._confirm) { this._confirm = true; this._render(); return; }
       this._confirm = false;
-      try { await this._hass.callWS({ type: "vordisarvarpid/reset_stats", ...this._entry }); } catch (e) { this._error = e.message || String(e); }
+      try { await this._hass.callWS({ type: "nfc_story_box/reset_stats", ...this._entry }); } catch (e) { this._error = e.message || String(e); }
       this._load();
     });
     const cancel = root.querySelector("[data-cancel]");
@@ -283,12 +283,12 @@ class VordisarvarpidTolfraediCard extends HTMLElement {
   }
 }
 
-if (!customElements.get("vordisarvarpid-tolfraedi-card-impl")) {
-  customElements.define("vordisarvarpid-tolfraedi-card-impl", VordisarvarpidTolfraediCard);
+if (!customElements.get("nfc-story-box-stats-card-impl")) {
+  customElements.define("nfc-story-box-stats-card-impl", NfcStoryBoxStatsCard);
 }
 // loaded without the loader: define the card directly
-if (!window.__VORDIS_LOADER && !customElements.get("vordisarvarpid-tolfraedi-card")) {
-  customElements.define("vordisarvarpid-tolfraedi-card", class extends VordisarvarpidTolfraediCard {});
+if (!window.__NSB_LOADER && !customElements.get("nfc-story-box-stats-card")) {
+  customElements.define("nfc-story-box-stats-card", class extends NfcStoryBoxStatsCard {});
   window.customCards = window.customCards || [];
-  window.customCards.push({ type: "vordisarvarpid-tolfraedi-card", name: "Vordísarvarpið – tölfræði", description: "Hlustun, vinsælustu kortin og hvenær spilarinn er notaður." });
+  window.customCards.push({ type: "nfc-story-box-stats-card", name: "NFC Story Box – tölfræði", description: "Hlustun, vinsælustu kortin og hvenær spilarinn er notaður." });
 }
