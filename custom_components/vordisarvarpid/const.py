@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 DOMAIN = "vordisarvarpid"
-VERSION = "1.2.5"
+VERSION = "1.2.6"
 
 # Config entry data / options
 CONF_READER_DEVICE = "reader_device"
@@ -63,3 +63,15 @@ LOADER_FILE = "vordisarvarpid-loader.js"
 STATS_CARD_FILE = "vordisarvarpid-tolfraedi-card.js"
 
 SIGNAL_UPDATED = f"{DOMAIN}_updated_{{}}"
+
+
+def notify_targets(value: object) -> list[str]:
+    """The notification actions in a setting: a list, or one text with actions separated by commas or spaces."""
+    if isinstance(value, str):
+        value = value.replace(",", " ").split()
+    out: list[str] = []
+    for item in value or []:
+        item = str(item).strip()
+        if item.count(".") == 1 and all(item.split(".")) and item not in out:
+            out.append(item)
+    return out

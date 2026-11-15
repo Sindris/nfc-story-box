@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.6
+
+Improved
+- The weekly summary's "send to" setting is now a list of the notification actions that exist in Home
+  Assistant (phones, tablets, groups) where you can pick several, instead of a text field. Typing another
+  action is still possible. A text value from an older version keeps working.
+
 ## 1.2.5
 
 Improved

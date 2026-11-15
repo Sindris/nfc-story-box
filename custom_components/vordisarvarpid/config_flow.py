@@ -37,6 +37,7 @@ from .const import (
     DEFAULT_START_VOLUME,
     DEFAULT_VOLUME_STEP,
     DOMAIN,
+    notify_targets,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -47,7 +48,7 @@ SETTING_KEYS = (
 )
 
 
-def _fields(defaults: dict[str, Any]) -> dict[str, tuple[Any, Any]]:
+def _fields(defaults: dict[str, Any], notify_options: list[str] | None = None) -> dict[str, tuple[Any, Any]]:
     """Every setting as (marker, selector), by key."""
     def opt(key: str) -> Any:
         return vol.Optional(key, description={"suggested_value": defaults.get(key)})
@@ -85,7 +86,11 @@ def _fields(defaults: dict[str, Any]) -> dict[str, tuple[Any, Any]]:
                 min=0, max=600, step=5, unit_of_measurement="min", mode=selector.NumberSelectorMode.BOX)),
         ),
         CONF_RECORD_STATS: (req(CONF_RECORD_STATS, True), selector.BooleanSelector()),
-        CONF_SUMMARY_NOTIFY: (opt(CONF_SUMMARY_NOTIFY), selector.TextSelector()),
+        CONF_SUMMARY_NOTIFY: (
+            vol.Optional(CONF_SUMMARY_NOTIFY, description={"suggested_value": notify_targets(defaults.get(CONF_SUMMARY_NOTIFY))}),
+            selector.SelectSelector(selector.SelectSelectorConfig(
+                options=notify_options or [], multiple=True, custom_value=True, mode=selector.SelectSelectorMode.DROPDOWN)),
+        ),
     }
 
 
@@ -96,7 +101,7 @@ SECTIONS: dict[str, tuple[tuple[str, ...], bool]] = {
     "limits": ((CONF_QUIET_START, CONF_QUIET_END, CONF_QUIET_MAX_VOLUME, CONF_QUIET_STORIES_ONLY, CONF_DAILY_LIMIT), True),
     "stats": ((CONF_RECORD_STATS, CONF_SUMMARY_NOTIFY), True),
 }
-OPTIONAL_TEXT = (CONF_BUTTON_EVENT, CONF_CARD_PRESENT, CONF_SOUND_SERVICE, CONF_QUIET_START, CONF_QUIET_END, CONF_SUMMARY_NOTIFY)
+OPTIONAL_TEXT = (CONF_BUTTON_EVENT, CONF_CARD_PRESENT, CONF_SOUND_SERVICE, CONF_QUIET_START, CONF_QUIET_END)
 
 
 def _schema(defaults: dict[str, Any]) -> vol.Schema:
@@ -107,9 +112,19 @@ def _schema(defaults: dict[str, Any]) -> vol.Schema:
     return vol.Schema({fields[k][0]: fields[k][1] for k in keys})
 
 
-def _options_schema(defaults: dict[str, Any]) -> vol.Schema:
+def notify_options(hass: HomeAssistant) -> list[str]:
+    """Notification actions that exist now (phones, tablets, groups), for the weekly summary's list."""
+    skip = {"send_message"}  # works on entities, not on a plain message
+    return sorted(f"notify.{name}" for name in hass.services.async_services_for_domain("notify") if name not in skip)
+
+
+def _options_schema(hass: HomeAssistant, defaults: dict[str, Any]) -> vol.Schema:
     """The settings page: the same settings in folding groups."""
-    fields = _fields(defaults)
+    options = notify_options(hass)
+    for chosen in notify_targets(defaults.get(CONF_SUMMARY_NOTIFY)):
+        if chosen not in options:
+            options.append(chosen)
+    fields = _fields(defaults, options)
     return vol.Schema({
         vol.Required(name): section(
             vol.Schema({fields[k][0]: fields[k][1] for k in keys}), {"collapsed": collapsed}
@@ -131,12 +146,15 @@ def _flatten(user_input: dict[str, Any]) -> dict[str, Any]:
 
 def _problems(hass: HomeAssistant, data: dict[str, Any]) -> str | None:
     """The first thing wrong with the settings, as an error key."""
-    for key in (CONF_SOUND_SERVICE, CONF_SUMMARY_NOTIFY):
-        value = str(data.get(key) or "").strip()
-        if value and (value.count(".") != 1 or not all(value.split("."))):
-            return "invalid_service"
-    notify = str(data.get(CONF_SUMMARY_NOTIFY) or "").strip()
-    if notify and not hass.services.has_service(*notify.split(".")):
+    sound = str(data.get(CONF_SOUND_SERVICE) or "").strip()
+    if sound and (sound.count(".") != 1 or not all(sound.split("."))):
+        return "invalid_service"
+    raw = data.get(CONF_SUMMARY_NOTIFY)
+    wanted = [raw] if isinstance(raw, str) and raw else list(raw or [])
+    targets = notify_targets(wanted)
+    if len(targets) != len([w for w in wanted if str(w).strip()]):
+        return "invalid_service"
+    if any(not hass.services.has_service(*t.split(".")) for t in targets):
         return "unknown_notify"
     if bool(data.get(CONF_QUIET_START)) != bool(data.get(CONF_QUIET_END)):
         return "quiet_incomplete"
@@ -286,7 +304,8 @@ class VordisOptionsFlow(OptionsFlow):
                 flat[key] = str(flat.get(key) or "").strip()
             problem = _problems(self.hass, flat)
             if problem is None:
+                flat[CONF_SUMMARY_NOTIFY] = notify_targets(flat.get(CONF_SUMMARY_NOTIFY))
                 return self.async_create_entry(data=flat)
             errors["base"] = problem
             current = {**current, **flat}  # keep what was typed
-        return self.async_show_form(step_id="init", data_schema=_options_schema(current), errors=errors)
+        return self.async_show_form(step_id="init", data_schema=_options_schema(self.hass, current), errors=errors)

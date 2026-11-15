@@ -100,11 +100,11 @@
             "description": "Hlustunartölfræði og vikuyfirlit.",
             "data": {
               "record_stats": "Skrá hlustunartölfræði",
-              "summary_notify": "Vikuyfirlit: tilkynningaþjónusta"
+              "summary_notify": "Vikuyfirlit: senda á"
             },
             "data_description": {
               "record_stats": "Heldur skrá yfir hvað var spilað og hvenær (90 daga). Gögnin eru áfram í Home Assistant.",
-              "summary_notify": "Yfirlit er sent á sunnudögum kl. 18:00 með þessari aðgerð (t.d. notify.mobile_app_siminn). Tómt þýðir engin skilaboð."
+              "summary_notify": "Veldu símana eða spjaldtölvurnar sem fá yfirlitið á sunnudögum kl. 18:00. Listinn sýnir tilkynningaaðgerðir sem eru til í Home Assistant; veldu fleiri en eina til að senda á mörg tæki. Tómt þýðir engin skilaboð."
             }
           }
         }

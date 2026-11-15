@@ -44,6 +44,7 @@ from .const import (
     CONF_RECORD_STATS,
     CONF_ONLY_SPEAKER,
     CONF_SUMMARY_NOTIFY,
+    notify_targets,
     CONF_QUIET_STORIES_ONLY,
     CONF_READER_DEVICE,
     CONF_RESUME_SAME_CARD,
@@ -279,8 +280,7 @@ class VordisBox:
             message = f"This week the box played {spent}." + (f" Favourite: {top}." if top else "")
         payload = {"message": message, "minutes": minutes, "favourite": top, "previous_minutes": data["prev_week"] // 60}
         self.hass.bus.async_fire(EVENT_WEEKLY_SUMMARY, payload)
-        service = str(self.conf.get(CONF_SUMMARY_NOTIFY) or "").strip()
-        if "." in service:
+        for service in notify_targets(self.conf.get(CONF_SUMMARY_NOTIFY)):
             domain, name = service.split(".", 1)
             await self._call(domain, name, {"message": message, "title": "Vordísarvarpið"}, quiet=True)
         return payload

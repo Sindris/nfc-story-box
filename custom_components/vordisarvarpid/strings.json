@@ -100,11 +100,11 @@
             "description": "Listening statistics and the weekly summary.",
             "data": {
               "record_stats": "Record listening statistics",
-              "summary_notify": "Weekly summary: notification action"
+              "summary_notify": "Weekly summary: send to"
             },
             "data_description": {
               "record_stats": "Keeps a log of what was played and when (90 days). It stays in Home Assistant.",
-              "summary_notify": "Sunday 18:00 summary is sent with this action (e.g. notify.mobile_app_phone). Leave empty for no message."
+              "summary_notify": "Choose the phones or tablets that get the Sunday 18:00 summary. The list shows the notification actions that exist in Home Assistant; pick several to send to several devices. Leave empty for no message."
             }
           }
         }

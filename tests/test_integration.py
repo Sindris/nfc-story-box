@@ -292,6 +292,8 @@ async def test_manual_flow_and_options(hass, reader, calls):
     path = hass.config.path("automations.yaml")
     await hass.async_add_executor_job(lambda: os.path.exists(path) and os.remove(path))
     hass.states.async_set(PLAYER, "idle")
+    async_mock_service(hass, "notify", "phone_a")
+    async_mock_service(hass, "notify", "phone_b")
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
     assert result["type"] is FlowResultType.FORM and result["step_id"] == "manual"
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {
@@ -316,19 +318,20 @@ async def test_manual_flow_and_options(hass, reader, calls):
         "speaker": {"player": "media_player.other", "only_speaker": True},
         "playback": {"start_volume": 0.2, "volume_step": 0.05, "pause_on_remove": False, "resume_same_card": True},
         "limits": {"quiet_start": "21:00:00", "quiet_end": "07:00:00", "quiet_max_volume": 0.3, "quiet_stories_only": False, "daily_limit": 0},
-        "stats": {"record_stats": True, "summary_notify": "notify.nowhere"},
+        "stats": {"record_stats": True, "summary_notify": ["notify.nowhere"]},
     })
     assert result["type"] is FlowResultType.FORM and result["errors"] == {"base": "unknown_notify"}
     result = await hass.config_entries.options.async_configure(result["flow_id"], {
         "speaker": {"player": "media_player.other", "only_speaker": True},
         "playback": {"start_volume": 0.2, "volume_step": 0.05, "pause_on_remove": False, "resume_same_card": True},
         "limits": {"quiet_start": "21:00:00", "quiet_end": "07:00:00", "quiet_max_volume": 0.3, "quiet_stories_only": False, "daily_limit": 0},
-        "stats": {"record_stats": True},
+        "stats": {"record_stats": True, "summary_notify": ["notify.phone_a", "notify.phone_b"]},
     })
     assert result["type"] is FlowResultType.CREATE_ENTRY
     await hass.async_block_till_done()
+    assert entry.options["summary_notify"] == ["notify.phone_a", "notify.phone_b"]
     assert entry.options["player"] == "media_player.other" and entry.options["only_speaker"] is True
-    assert entry.options["quiet_end"] == "07:00:00" and entry.options["summary_notify"] == ""
+    assert entry.options["quiet_end"] == "07:00:00"
     assert entry.runtime_data.box.player == "media_player.other"
 
 
@@ -688,3 +691,13 @@ async def test_weekly_summary(hass, reader, calls):
     await hass.async_block_till_done()
     assert events and events[-1]["favourite"] == "Vordís Partí" and events[-1]["minutes"] >= 9
     assert notes and "Vordís Partí" in notes[-1].data["message"]
+
+
+async def test_weekly_summary_to_several_devices(hass, reader, calls):
+    entry = await _setup(hass, reader, summary_notify=["notify.phone", "notify.tablet"])
+    phone = async_mock_service(hass, "notify", "phone")
+    tablet = async_mock_service(hass, "notify", "tablet")
+    await _listen(hass, reader, entry.runtime_data.box, 600)
+    await hass.services.async_call(DOMAIN, "weekly_summary", {}, blocking=True)
+    await hass.async_block_till_done()
+    assert phone and tablet
