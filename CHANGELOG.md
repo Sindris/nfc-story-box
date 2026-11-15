@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.4
+
+Fixed
+- "Play only on the chosen speaker": the box now waits until Music Assistant has moved the speaker off the
+  group's queue after the group is switched off. Before, the play command could switch the group on again.
+
 ## 1.2.3
 
 Added

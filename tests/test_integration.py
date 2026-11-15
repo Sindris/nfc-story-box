@@ -553,11 +553,16 @@ async def test_only_speaker_switches_the_group_off(hass, reader, calls):
     async def _group_goes_off():
         await asyncio.sleep(0.1)
         hass.states.async_set(group, "off", {"active_queue": "g1", "group_members": [PLAYER, "media_player.x"]})
+        await asyncio.sleep(0.5)  # Music Assistant gives the speaker its own queue a moment later
+        order.append("own queue")
+        hass.states.async_set(PLAYER, "idle", {"volume_level": 0.5, "active_queue": "own", "group_members": []})
 
+    order = []
     task = hass.async_create_task(_group_goes_off())
     await _scan(hass, reader, "89-4A-71-E6")
     await task
     assert off and off[-1].data["entity_id"] == group
+    assert order == ["own queue"]  # played only after the speaker was free of the group
     assert calls["ma_play"][-1].data["entity_id"] == PLAYER
 
 

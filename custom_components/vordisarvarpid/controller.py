@@ -162,16 +162,31 @@ class VordisBox:
         groups = self._groups_of(player)
         return groups[0] if groups else player
 
+    def _tied_to_group(self, player: str) -> list[str]:
+        """Groups (on or off) whose queue the speaker is still using. Music Assistant moves the speaker to its own
+        queue a moment after the group is switched off; playing before that would switch the group on again."""
+        state = self.hass.states.get(player)
+        queue = state.attributes.get("active_queue") if state is not None else None
+        if not queue:
+            return []
+        return [
+            other.entity_id for other in self.hass.states.async_all("media_player")
+            if other.entity_id != player
+            and other.attributes.get("active_queue") == queue
+            and player in (other.attributes.get("group_members") or [])
+        ]
+
     async def _leave_groups(self, player: str) -> None:
         """Switch off the groups the speaker is in, so that it plays alone."""
         if not self.conf.get(CONF_ONLY_SPEAKER, False):
             return
         for group in self._groups_of(player):
             await self._call("media_player", "turn_off", {"entity_id": group}, quiet=True)
-        for _ in range(20):
-            if not self._groups_of(player):
+        for _ in range(40):  # up to 10 s for the speaker to get its own queue back
+            if not self._tied_to_group(player):
                 return
             await asyncio.sleep(0.25)
+        _LOGGER.warning("%s is still tied to a group's queue; it may play on the group", player)
 
     @property
     def quiet(self) -> bool:
