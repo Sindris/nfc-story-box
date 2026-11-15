@@ -21,7 +21,7 @@ ENTRY = vol.Optional("entry_id")
 
 @callback
 def async_register_websocket(hass: HomeAssistant) -> None:
-    for handler in (ws_list, ws_get, ws_save_cards, ws_update, ws_play, ws_stop, ws_subscribe, ws_reset_position, ws_stats, ws_reset_stats):
+    for handler in (ws_list, ws_get, ws_save_cards, ws_update, ws_play, ws_stop, ws_subscribe, ws_reset_position, ws_stats, ws_reset_stats, ws_import_data):
         websocket_api.async_register_command(hass, handler)
 
 
@@ -228,3 +228,16 @@ def ws_reset_stats(hass: HomeAssistant, connection: websocket_api.ActiveConnecti
     store.schedule_save()
     async_dispatcher_send(hass, SIGNAL_UPDATED.format(entry.entry_id))
     connection.send_result(msg["id"])
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({vol.Required("type"): "nfc_story_box/import_data", ENTRY: str, vol.Required("data"): dict})
+@callback
+def ws_import_data(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Load an earlier copy of a box's stored data (for example when moving to a new installation)."""
+    entry = _guard(connection, msg, lambda: get_entry(hass, msg.get("entry_id")))
+    if entry is None:
+        return
+    entry.runtime_data.store.import_data(msg["data"])
+    async_dispatcher_send(hass, SIGNAL_UPDATED.format(entry.entry_id))
+    connection.send_result(msg["id"], {"cards": len(entry.runtime_data.store.cards)})

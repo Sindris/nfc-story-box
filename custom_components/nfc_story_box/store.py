@@ -121,6 +121,16 @@ class CardStore:
         stats.ensure(data)
         self.data = data
 
+    def import_data(self, raw: dict[str, Any]) -> None:
+        """Merge an earlier copy of the stored data (cards, labels, history, ...) into this box."""
+        for key, value in raw.items():
+            if key in self.data and key != "cards" and value is not None:
+                self.data[key] = value
+        if isinstance(raw.get("cards"), list):
+            self.data["cards"] = [clean_card(c) for c in raw["cards"] if isinstance(c, dict)]
+        stats.ensure(self.data)
+        self.schedule_save()
+
     def schedule_save(self) -> None:
         self._store.async_delay_save(lambda: self.data, SAVE_DELAY)
 

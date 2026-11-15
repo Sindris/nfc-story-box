@@ -734,3 +734,16 @@ async def test_phone_scan_plays_when_enabled(hass, reader, calls):
     hass.bus.async_fire("tag_scanned", {"tag_id": "89-4a-71-e6", "device_id": "phone"})
     await hass.async_block_till_done()
     assert calls["ma_play"]
+
+
+async def test_import_data_command(hass, hass_ws_client, reader, calls):
+    entry = await _setup(hass, reader)
+    client = await hass_ws_client(hass)
+    await client.send_json({
+        "id": 1, "type": "nfc_story_box/import_data", "entry_id": entry.entry_id,
+        "data": {"cards": CARDS[:1], "history": {"x": {"count": 2}}, "positions": {"x": {"index": 1}}, "bogus": 1},
+    })
+    msg = await client.receive_json()
+    assert msg["success"] and msg["result"] == {"cards": 1}
+    data = entry.runtime_data.store.data
+    assert data["history"] == {"x": {"count": 2}} and data["positions"] == {"x": {"index": 1}} and "bogus" not in data
