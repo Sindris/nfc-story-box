@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 DOMAIN = "vordisarvarpid"
-VERSION = "1.2.1"
+VERSION = "1.2.2"
 
 # Config entry data / options
 CONF_READER_DEVICE = "reader_device"

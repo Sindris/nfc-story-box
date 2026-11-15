@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.2
+
+Fixed
+- A Spotify audiobook (or other item Music Assistant can't look up by address) no longer shows
+  "Not found in Music Assistant" when it can be found by its title.
+
 ## 1.2.1
 
 Fixed

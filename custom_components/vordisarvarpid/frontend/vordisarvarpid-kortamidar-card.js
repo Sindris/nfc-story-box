@@ -1352,6 +1352,15 @@ class VordisarvarpidKortamidarCard extends HTMLElement {
           const res = await this._service("music_assistant", "search", { config_entry_id: this._entry, name: uri, media_type: [type], limit: 5 });
           hit = Object.values(res || {}).filter(Array.isArray).flat().find((x) => x.uri === uri) || null;
         } catch (e) { /* not found */ }
+        // Music Assistant can't search by address for every provider (Spotify audiobooks, say), but it finds
+        // the book by its title: use the title we already know and pick the result with this exact address
+        const known = this._names[uri] || (this._known[uri] && this._known[uri].name) || "";
+        if (!hit && known) {
+          try {
+            const res = await this._service("music_assistant", "search", { config_entry_id: this._entry, name: known, media_type: [type], limit: 25 });
+            hit = Object.values(res || {}).filter(Array.isArray).flat().find((x) => x.uri === uri) || null;
+          } catch (e) { /* not found */ }
+        }
       }
     }
     if (this._info !== info) return;  // another lookup started meanwhile
