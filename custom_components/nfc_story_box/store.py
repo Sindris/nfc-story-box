@@ -20,7 +20,7 @@ STORAGE_VERSION = 1
 SAVE_DELAY = 2
 
 CARD_FIELDS = (
-    "id", "name", "tag_id", "media_id", "media_type", "more_media", "shuffle", "keep_playing", "media",
+    "id", "name", "tag_id", "more_tags", "no_label", "media_id", "media_type", "more_media", "shuffle", "keep_playing", "media",
     "remember", "next_each_time", "player", "start_volume", "action", "minutes",
 )
 MAX_NAMES = 5000
@@ -37,6 +37,26 @@ def clean_card(raw: dict[str, Any]) -> dict[str, Any]:
     card["id"] = str(raw.get("id") or uuid.uuid4().hex[:12])
     card["name"] = str(card.get("name") or "").strip()
     card["tag_id"] = str(card.get("tag_id") or "").strip()
+    # more NFC cards or chips that start the same card (one id per line)
+    raw_tags = raw.get("more_tags") or ""
+    if isinstance(raw_tags, (list, tuple)):
+        raw_tags = "\n".join(str(x) for x in raw_tags)
+    seen = {norm_tag(card["tag_id"])}
+    extra: list[str] = []
+    for line in str(raw_tags).split("\n"):
+        tag = line.strip()
+        if tag and norm_tag(tag) not in seen:
+            seen.add(norm_tag(tag))
+            extra.append(tag)
+    if extra:
+        card["more_tags"] = "\n".join(extra)
+    else:
+        card.pop("more_tags", None)
+    # a chip glued to a book or toy: nothing to print a label for
+    if raw.get("no_label"):
+        card["no_label"] = True
+    else:
+        card.pop("no_label", None)
     if "more_media" in card:
         lines = [x.strip() for x in str(card["more_media"]).split("\n") if x.strip()]
         if lines:
@@ -75,6 +95,13 @@ def clean_card(raw: dict[str, Any]) -> dict[str, Any]:
         card.pop("action", None)
         card.pop("minutes", None)
     return card
+
+
+def card_tags(card: dict[str, Any]) -> list[str]:
+    """Every NFC tag id that starts this card (the first one, then any more)."""
+    tags = [str(card.get("tag_id") or "").strip()]
+    tags += [t.strip() for t in str(card.get("more_tags") or "").split("\n")]
+    return [t for t in tags if t]
 
 
 def is_story(card: dict[str, Any]) -> bool:
@@ -149,7 +176,7 @@ class CardStore:
         want = norm_tag(tag)
         if not want:
             return None
-        return next((c for c in self.cards if norm_tag(c.get("tag_id")) == want), None)
+        return next((c for c in self.cards if want in {norm_tag(t) for t in card_tags(c)}), None)
 
     def card_by_id(self, card_id: str) -> dict[str, Any] | None:
         return next((c for c in self.cards if c.get("id") == card_id), None)

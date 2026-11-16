@@ -629,6 +629,9 @@ const NAMES_KEY = "nsb-labels-names";   // uri -> {name, image}: books outside y
 const RETURN_TEXT = "Ef þú finnur mig: skilaðu mér til eigandans ♥";
 const GROUPS = [["music", "Tónlist"], ["story", "Sögur"], ["control", "Stýrikort"]];
 const mediaOf = (c) => c.media_id || (c.media && c.media.media_content_id) || "";
+const moreTagsOf = (c) => String(c.more_tags || "").split("\n").map((x) => x.trim()).filter(Boolean);
+const tagsOf = (c) => [String(c.tag_id || "").trim(), ...moreTagsOf(c)].filter(Boolean);
+const hasTag = (c, tag) => tagsOf(c).some((t) => t.toUpperCase() === String(tag || "").trim().toUpperCase());
 const moreOf = (c) => String(c.more_media || "").split("\n").map((x) => x.trim()).filter(Boolean);
 const MEDIA_TYPES = "album|playlist|audiobook|podcast|artist|track|radio";
 // "library://album/2", "spotify--x://playlist/abc", or a Music Assistant web address ".../#/albums/library/2"
@@ -907,7 +910,7 @@ class NfcStoryBoxCard extends HTMLElement {
       it.series = moreOf(c).length > 0;
       it.count = 1 + moreOf(c).length;
       it.copies = lab.copies || 1;
-      it.include = lab.include !== false;
+      it.include = lab.include !== false && !c.no_label;
       const mkey = [mediaOf(c), c.more_media || "", c.media_type || ""].join("|");
       const sig = `${lang()}|${mkey}|${it.title}|${it.kind}|${lab.image || ""}`;
       if (it._sig !== sig) {
@@ -1212,7 +1215,7 @@ class NfcStoryBoxCard extends HTMLElement {
     const w = this._wiz, tag = String(s.tag_id || "").trim(), up = tag.toUpperCase();
     const cards = this._editCards(), next = this._missing()[0];
     if (!tag || !next) return;
-    const other = cards.find((c) => String(c.tag_id || "").trim().toUpperCase() === up);
+    const other = cards.find((c) => hasTag(c, up));
     if (other) { w.msg = `Þetta kort er þegar tengt við „${other.name}“. Leggðu annað kort á.`; w.bad = true; this._render(); return; }
     next.c.tag_id = tag;
     try {
@@ -1254,7 +1257,7 @@ class NfcStoryBoxCard extends HTMLElement {
     if (!this._loaded) return;
     if (this._wiz) { this._wizScan(s); return; }
     const tag = String(s.tag_id || "").trim().toUpperCase();
-    const cards = this._editCards(), i = cards.findIndex((c) => String(c.tag_id || "").trim().toUpperCase() === tag);
+    const cards = this._editCards(), i = cards.findIndex((c) => hasTag(c, tag));
     this._printOpen = false; this._menu = false; this._find = null; this._ser = null; this._msg = "";
     if (i >= 0) {
       this._scan = null; this._scanned = cards[i].id;
@@ -1618,8 +1621,11 @@ class NfcStoryBoxCard extends HTMLElement {
       if (!c.name) problems.push(`Kort ${i + 1} vantar heiti`);
       if (!c.action && !c.media_id && !c.media) problems.push(`„${c.name || i + 1}“ spilar ekkert`);
       if (!c.tag_id) c.tag_id = this._placeholder();
-      if (seen[c.tag_id]) problems.push(`„${c.name}“ og „${seen[c.tag_id]}“ nota sama kort`);
-      seen[c.tag_id] = c.name;
+      for (const t of tagsOf(c)) {
+        const k = t.toUpperCase();
+        if (seen[k] && seen[k] !== c.name) problems.push(`„${c.name}“ og „${seen[k]}“ nota sama kort`);
+        seen[k] = c.name;
+      }
       if (typeof c.shuffle !== "boolean") c.shuffle = false;
       if (typeof c.keep_playing !== "boolean") c.keep_playing = false;
     });
@@ -1630,10 +1636,12 @@ class NfcStoryBoxCard extends HTMLElement {
       this._saved = r.cards;
       // name real tags after their card, so Home Assistant's tag list shows the right name
       for (const c of this._saved) {
-        const t = (this._tags || []).find((x) => x.id === c.tag_id);
-        const want = `${c.name} - Tag ${c.tag_id}`;
-        if (t && t.name !== want) {
-          try { await this._hass.callWS({ type: "tag/update", tag_id: t.id, name: want }); t.name = want; } catch (e) { /* not critical */ }
+        for (const id of tagsOf(c)) {
+          const t = (this._tags || []).find((x) => x.id === id);
+          const want = `${c.name} - Tag ${id}`;
+          if (t && t.name !== want) {
+            try { await this._hass.callWS({ type: "tag/update", tag_id: t.id, name: want }); t.name = want; } catch (e) { /* not critical */ }
+          }
         }
       }
       this._edit = null; this._dirty = false; this._msg = "Vistað ✓"; this._scan = null;
@@ -1647,7 +1655,7 @@ class NfcStoryBoxCard extends HTMLElement {
     const s = this._scan;
     if (!s) return "";
     const cards = this._editCards();
-    const linked = cards.findIndex((c) => String(c.tag_id || "").toUpperCase() === String(s.id).toUpperCase());
+    const linked = cards.findIndex((c) => hasTag(c, s.id));
     if (linked >= 0)
       return `<div class="scan ok-b">✓ <span>Kortið <b>${esc(s.id)}</b> er tengt við <b>„${esc(cards[linked].name || "nýja kortið")}“</b>. Ýttu á Vista breytingar.</span><button class="x" id="scanX" aria-label="Loka">✕</button></div>`;
     const missing = cards.map((c, i) => ({ c, i })).filter(({ c }) => !this._real(c.tag_id));
@@ -1656,6 +1664,9 @@ class NfcStoryBoxCard extends HTMLElement {
       ${missing.length ? `<span class="link">Tengja við
         <select id="scanTo">${missing.map(({ c, i }) => `<option value="${i}">${esc(c.name || "(nýtt kort)")}</option>`).join("")}</select>
         <button class="sm" id="scanLink">Tengja</button></span>` : ""}
+      ${cards.length ? `<span class="link">eða bæta við sem aukakort á
+        <select id="scanExtraTo">${cards.map((c, i) => `<option value="${i}">${esc(c.name || "(nýtt kort)")}</option>`).join("")}</select>
+        <button class="sm" id="scanExtra">Bæta við</button></span>` : ""}
       <button class="sec sm" id="scanNew">+ Búa til nýtt kort</button>
       <button class="x" id="scanX" aria-label="Loka">✕</button></div>`;
   }
@@ -1701,14 +1712,15 @@ class NfcStoryBoxCard extends HTMLElement {
       return `<div class="tile${it.include ? " on" : ""}" data-tile="${i}" data-drag="${i}" draggable="true" tabindex="0" role="button" aria-label="${esc(it.card.name || "Nýtt kort")}${real ? "" : ", vantar NFC-kort"}${playing ? ", í spilun" : ""}">
         <div class="img" style="aspect-ratio:${st.w}/${st.h}">
           ${it.preview ? `<img src="${it.preview}" alt="" draggable="false">` : `<div class="ph">${it.card.media_id || it.card.media ? "…" : "＋"}</div>`}
-          <button class="tick" data-tick="${i}" aria-pressed="${it.include ? "true" : "false"}" aria-label="Prenta miða" title="${it.include ? "Prentast (smelltu til að sleppa)" : "Prentast ekki (smelltu til að velja)"}">✓</button>
+          ${it.card.no_label ? "" : `<button class="tick" data-tick="${i}" aria-pressed="${it.include ? "true" : "false"}" aria-label="Prenta miða" title="${it.include ? "Prentast (smelltu til að sleppa)" : "Prentast ekki (smelltu til að velja)"}">✓</button>`}
           ${it.copies > 1 ? `<span class="copies">×${it.copies}</span>` : ""}
           ${playing ? `<span class="nowp">♪ spilar</span>` : ""}
           <button class="tplay" data-play="${i}" aria-label="${this._playing === it.card.id ? "Stöðva" : "Prófa á hátalara"}" title="${this._playing === it.card.id ? "Stöðva" : "Prófa á hátalara"}">${this._playing === it.card.id ? "■" : "▶"}</button>
         </div>
         <div class="cap"><span class="t">${esc(it.card.name || "(nýtt kort)")}</span>
           <span class="meta">${this._tags ? `<span class="${real ? "ok" : "warn"}">${real ? "✓ tengt" : "⚠ vantar kort"}</span>` : ""}
-          ${pr ? `<span class="pr">prentað ${shortDate(pr)}</span>` : ""}
+          ${it.card.no_label ? `<span class="pr" title="Flaga á bók eða hlut, enginn miði">📚 enginn miði</span>` : pr ? `<span class="pr">prentað ${shortDate(pr)}</span>` : ""}
+          ${moreTagsOf(it.card).length ? `<span class="pr" title="Fleiri kort eða flögur">🏷 ×${1 + moreTagsOf(it.card).length}</span>` : ""}
           ${(this._history[it.card.id] || {}).count ? `<span class="pr" title="Hve oft kortið hefur verið spilað">▶ ${this._history[it.card.id].count}×</span>` : ""}</span></div>
       </div>`;
     };
@@ -1873,6 +1885,11 @@ class NfcStoryBoxCard extends HTMLElement {
         <span class="rowc"><select data-e="tag_id" data-i="${i}">${tagOpts.join("")}</select>
         <button class="sec sm" data-newest="${i}" title="Leggðu kortið á kassann fyrst">Nota síðasta skannaða</button></span></label>
       <div class="msg small">${real ? "✓ Þetta kort hefur verið lagt á kassann." : "Leggðu nýja kortið á kassann og veldu það hér, eða notaðu „Tengja við“ sem birtist efst á síðunni."}</div>
+      <div class="fld"><span>Fleiri kort eða flögur sem ræsa þetta</span>
+        ${moreTagsOf(c).map((t, k) => `<div class="ser-i"><span class="t">${esc(t)}</span>${this._real(t) ? `<span class="ok">✓</span>` : `<span class="warn">ekki skannað enn</span>`}
+          <button class="sec sm" data-untag="${i}:${k}" aria-label="Fjarlægja">✕</button></div>`).join("")}
+        <span class="rowc"><button class="sec sm" data-addtag="${i}" title="Leggðu kortið eða flöguna á kassann fyrst">+ Bæta við síðast skannaða</button></span></div>
+      <label class="sw"><input type="checkbox" data-nolabel="${i}" ${c.no_label ? "checked" : ""}> Ekkert merki (flaga límd á bók eða hlut, prentast ekki)</label>
       <div class="sep"></div>
       <div class="row-end"><button class="sec sm danger" data-del="${i}">Eyða korti</button></div>
     </div>`;
@@ -1987,12 +2004,16 @@ class NfcStoryBoxCard extends HTMLElement {
     // scanning
     on("scanX", "onclick", () => { this._scan = null; this._render(); });
     on("scanNew", "onclick", () => { const id = this._scan.id; this._scan.i = this._editCards().length; newCard(id); });
+    on("scanExtra", "onclick", () => {
+      const i = +$("scanExtraTo").value, c = this._editCards()[i];
+      this._scan.i = i; this._change(i, "more_tags", [...moreTagsOf(c), this._scan.id].join("\n")); this._openPanel(i, "kort");
+    });
     on("scanLink", "onclick", () => {
       const i = +$("scanTo").value;
       this._scan.i = i; this._change(i, "tag_id", this._scan.id); this._openPanel(i, "kort");
     });
     // grid
-    const selectAll = (fn) => { items.forEach((it) => { const v = fn(it); if (v !== it.include) this._setLabel(it, { include: v ? null : false }); it.include = v; }); this._render(); };
+    const selectAll = (fn) => { items.forEach((it) => { const v = fn(it) && !it.card.no_label; if (v !== it.include) this._setLabel(it, { include: v ? null : false }); it.include = v; }); this._render(); };
     on("selAll", "onclick", () => selectAll(() => true));
     on("wizStart", "onclick", () => this._wizStart());
     const wizEnd = () => { this._wiz = null; this._render(); };
@@ -2001,7 +2022,7 @@ class NfcStoryBoxCard extends HTMLElement {
     on("selNone", "onclick", () => selectAll(() => false));
     on("selNew", "onclick", () => selectAll((it) => !this._printedAt(it)));
     q("[data-tick]").forEach((el) => el.onclick = stop(() => {
-      const it = items[+el.dataset.tick]; it.include = !it.include; this._setLabel(it, { include: it.include ? null : false }); this._render();
+      const it = items[+el.dataset.tick]; if (it.card.no_label) return; it.include = !it.include; this._setLabel(it, { include: it.include ? null : false }); this._render();
     }));
     q("[data-play]").forEach((el) => el.onclick = stop(() => {
       const c = this._editCards()[+el.dataset.play];
@@ -2052,6 +2073,23 @@ class NfcStoryBoxCard extends HTMLElement {
     q("[data-forget]").forEach((el) => el.onclick = async () => {
       try { await this._hass.callWS({ type: "nfc_story_box/reset_position", entry_id: this._entryId, card_id: el.dataset.forget }); } catch (e) { /* ignore */ }
       delete this._positions[el.dataset.forget]; this._render();
+    });
+    q("[data-addtag]").forEach((el) => el.onclick = async () => {
+      await this._loadTags();
+      const i = +el.dataset.addtag, c = this._editCards()[i], t = (this._tags || [])[0];
+      if (!t) { this._msg = "Ekkert kort hefur verið lagt á kassann."; this._render(); return; }
+      const other = this._editCards().find((x) => x.id !== c.id && hasTag(x, t.id));
+      if (hasTag(c, t.id)) this._msg = "Þessi flaga er þegar á þessu korti.";
+      else if (other) this._msg = `Þessi flaga er þegar á „${other.name}“. Fjarlægðu það þaðan fyrst.`;
+      else { this._change(i, "more_tags", [...moreTagsOf(c), t.id].join("\n")); this._msg = "Korti bætt við."; }
+      this._render();
+    });
+    q("[data-untag]").forEach((el) => el.onclick = () => {
+      const [i, k] = el.dataset.untag.split(":").map(Number), c = this._editCards()[i], l = moreTagsOf(c);
+      l.splice(k, 1); this._change(i, "more_tags", l.join("\n")); this._render();
+    });
+    q("[data-nolabel]").forEach((el) => el.onchange = () => {
+      this._change(+el.dataset.nolabel, "no_label", el.checked || undefined); this._render();
     });
     q("[data-newest]").forEach((el) => el.onclick = async () => {
       await this._loadTags();

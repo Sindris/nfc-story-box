@@ -745,3 +745,22 @@ async def test_import_data_command(hass, hass_ws_client, reader, calls):
     assert msg["success"] and msg["result"] == {"cards": 1}
     data = entry.runtime_data.store.data
     assert data["history"] == {"x": {"count": 2}} and data["positions"] == {"x": {"index": 1}} and "bogus" not in data
+
+
+async def test_several_tags_start_the_same_card(hass, reader, calls):
+    entry = await _setup(hass, reader)
+    store = entry.runtime_data.store
+    cards = [dict(c) for c in CARDS]
+    cards[0]["more_tags"] = "11-22\n89-4a-71-e6\n11-22\n  33-44  "
+    cards[0]["no_label"] = True
+    store.set_cards(cards)
+    # duplicates of the first tag and of each other are dropped, the rest kept
+    assert store.cards[0]["more_tags"] == "11-22\n33-44"
+    assert store.cards[0]["no_label"] is True
+    assert "no_label" not in store.cards[1] and "more_tags" not in store.cards[1]
+    for tag in ("89-4a-71-e6", "11-22", "33-44"):
+        calls["ma_play"].clear()
+        await _scan(hass, reader, tag)
+        assert calls["ma_play"][-1].data["media_id"] == "library://playlist/14"
+    # the same card via another chip counts as the same card (history, resume)
+    assert store.data["last_tag"] == "89-4A-71-E6"

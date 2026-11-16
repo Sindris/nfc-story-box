@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.1.0
+
+Added
+- A card can have **several NFC cards or chips** (tab *Cards* → "More cards or chips that start this"). Any of
+  them starts the same card and counts as the same card for resuming, history and statistics. A newly
+  scanned chip can also be added to an existing card straight from the scan banner.
+- **No label** option for cards whose chip is glued to a book or object: they are never selected for printing
+  and are skipped by "Select all" and "Only unprinted".
+
 ## 2.0.0
 
 Changed (breaking)

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 DOMAIN = "nfc_story_box"
-VERSION = "2.0.0"
+VERSION = "2.1.0"
 
 # Config entry data / options
 CONF_READER_DEVICE = "reader_device"
