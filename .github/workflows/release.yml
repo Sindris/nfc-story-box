@@ -1,0 +1,43 @@
+name: Release
+
+# Publishes a GitHub release for every version tag that has none, with the notes taken from
+# CHANGELOG.md. If manifest.json names a version that has no tag yet, the tag is made on the
+# latest commit. Runs on every push to main and can be started by hand.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Create missing releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          current=$(python3 -c "import json;print(json.load(open('custom_components/nfc_story_box/manifest.json'))['version'])")
+          notes() {  # notes for one version from CHANGELOG.md
+            awk -v v="$1" '$0 ~ "^## "v"$" {on=1; next} /^## /{on=0} on' CHANGELOG.md
+          }
+          versions=$(git tag --list 'v*' | sed 's/^v//')
+          if ! git rev-parse -q --verify "refs/tags/v$current" >/dev/null; then
+            versions="$versions
+          $current"
+          fi
+          for v in $(echo "$versions" | sort -uV); do
+            if gh release view "v$v" >/dev/null 2>&1; then continue; fi
+            notes "$v" > /tmp/notes.md
+            [ -s /tmp/notes.md ] || echo "Release $v" > /tmp/notes.md
+            latest=false; [ "$v" = "$current" ] && latest=true
+            echo "Creating release v$v"
+            gh release create "v$v" --title "v$v" --notes-file /tmp/notes.md \
+              --target "$GITHUB_SHA" --latest="$latest"
+          done
