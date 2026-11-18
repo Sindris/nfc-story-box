@@ -52,3 +52,10 @@ weekly_summary:
       selector:
         config_entry:
           integration: nfc_story_box
+restart:
+  fields:
+    entry_id:
+      required: false
+      selector:
+        config_entry:
+          integration: nfc_story_box

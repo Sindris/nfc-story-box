@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.2.0
+
+Added
+- **Play from the start**: holding the play/pause button down starts the current story again from the beginning
+  (the reader sends a new `restart` button event, so the reader needs the updated `esphome/nfc-story-box-reader.yaml`;
+  short press is unchanged but now fires on release). Also available as the action `nfc_story_box.restart`.
+
 ## 2.1.0
 
 Added

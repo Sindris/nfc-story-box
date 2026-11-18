@@ -136,7 +136,7 @@ card types (`custom:nfc-story-box-card`, `custom:nfc-story-box-stats-card`) and 
 
 `esphome/nfc-story-box-reader.yaml` is the firmware of the box this was built for: a Wemos D1 mini (ESP8266)
 with a PN532 NFC reader on I²C (SDA GPIO4, SCL GPIO5), a passive buzzer on GPIO14 and three buttons
-(play/pause GPIO2, next GPIO0, previous GPIO12; hold next/previous for volume). It needs `wifi_ssid` and
+(play/pause GPIO2, next GPIO0, previous GPIO12; hold next/previous for volume, hold play/pause to start the story again from the beginning). It needs `wifi_ssid` and
 `wifi_password` in your ESPHome secrets. The device name `nfc-reader` is what the integration's automatic
 "play sound" lookup expects (`esphome.nfc_reader_play_sound`); change it together with the sound action setting. Adding an `api: encryption:` key and an `ota: password:` is
 recommended.

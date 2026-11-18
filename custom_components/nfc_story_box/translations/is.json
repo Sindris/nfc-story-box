@@ -214,6 +214,16 @@
           "description": "Aðeins nauðsynlegt með fleiri en einn spilara."
         }
       }
+    },
+    "restart": {
+      "name": "Spila frá byrjun",
+      "description": "Byrjar kortið sem er í spilun, eða spilaðist síðast, aftur frá byrjun (eins og að halda play/pause hnappinum inni).",
+      "fields": {
+        "entry_id": {
+          "name": "Tæki",
+          "description": "Aðeins ef tækin eru fleiri en eitt."
+        }
+      }
     }
   },
   "exceptions": {

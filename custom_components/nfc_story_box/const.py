@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 DOMAIN = "nfc_story_box"
-VERSION = "2.1.0"
+VERSION = "2.2.0"
 
 # Config entry data / options
 CONF_READER_DEVICE = "reader_device"
@@ -43,6 +43,7 @@ MAX_PLAYS = 200   # how many recent plays are kept
 
 # Button event types sent by the box
 BTN_PLAY_PAUSE = "play_pause"
+BTN_RESTART = "restart"  # play/pause held down: start the story again from the beginning
 BTN_NEXT = "next"
 BTN_PREVIOUS = "previous"
 BTN_VOLUME_UP = "volume_up"

@@ -31,6 +31,7 @@ from .const import (
     BTN_NEXT,
     BTN_PLAY_PAUSE,
     BTN_PREVIOUS,
+    BTN_RESTART,
     BTN_VOLUME_DOWN,
     BTN_VOLUME_UP,
     CONF_BUTTON_EVENT,
@@ -552,7 +553,7 @@ class StoryBox:
         await self._call("media_player", "media_pause", {"entity_id": self.player}, quiet=True)
 
     # -- playing
-    async def async_play_card(self, card: dict[str, Any], *, from_scan: bool = False) -> None:
+    async def async_play_card(self, card: dict[str, Any], *, from_scan: bool = False, from_start: bool = False) -> None:
         """Play a card, or continue it if it is the same card and playback is paused."""
         async with self._lock:
             player = self._target(card)
@@ -574,6 +575,7 @@ class StoryBox:
             ir.async_delete_issue(self.hass, DOMAIN, f"speaker_{self.entry.entry_id}")
             same = (
                 from_scan
+                and not from_start
                 and self.conf.get(CONF_RESUME_SAME_CARD, True)
                 and bool(tag)
                 and self.store.data.get("last_tag") == tag
@@ -592,7 +594,8 @@ class StoryBox:
                     _LOGGER.warning("Card %s has nothing to play", card.get("name"))
                     return
                 # leave the previous card tidily: remember its place, and stop it if it is on another speaker
-                await self._capture()
+                if not from_start:
+                    await self._capture()
                 if self._active and self._active_player and self._active_player != player:
                     await self._call("media_player", "media_pause", {"entity_id": self._active_player}, quiet=True)
                 self._account()
@@ -601,7 +604,7 @@ class StoryBox:
                 if card.get("next_each_time") and len(items) > 1 and card.get("id"):
                     index = int(self.store.data["series_next"].get(card["id"]) or 0) % len(items)
                     self.store.data["series_next"][card["id"]] = (index + 1) % len(items)
-                elif self._tracks(card) and card.get("id"):
+                elif self._tracks(card) and card.get("id") and not from_start:
                     pos = self.store.data["positions"].get(card["id"]) or {}
                     if 0 <= int(pos.get("index") or 0) < len(items):
                         index, seek = int(pos.get("index") or 0), float(pos.get("elapsed") or 0)
@@ -734,6 +737,8 @@ class StoryBox:
         player = self.player
         if kind == BTN_PLAY_PAUSE:
             await self._call("media_player", "media_play_pause", {"entity_id": player}, quiet=True)
+        elif kind == BTN_RESTART:
+            await self.async_restart_card()
         elif kind == BTN_NEXT:
             await self._call("media_player", "media_next_track", {"entity_id": player}, quiet=True)
         elif kind == BTN_PREVIOUS:
@@ -747,6 +752,16 @@ class StoryBox:
             step = float(self.conf.get(CONF_VOLUME_STEP, DEFAULT_VOLUME_STEP))
             level = min(level + step, self.max_volume) if kind == BTN_VOLUME_UP else max(level - step, MIN_VOLUME)
             await self._call("media_player", "volume_set", {"entity_id": player, "volume_level": round(level, 2)}, quiet=True)
+
+    async def async_restart_card(self) -> None:
+        """Start the current card again from the beginning (play/pause held down, or the action)."""
+        card = self._current_card()
+        if card is None or card.get("action"):
+            await self._sound("unknown")
+            return
+        self.store.data["positions"].pop(card["id"], None)
+        self.store.schedule_save()
+        await self.async_play_card(card, from_start=True)
 
     async def _pause_if_playing(self) -> None:
         """The card was lifted off. Only what the box started is paused, and each card decides for itself."""

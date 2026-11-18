@@ -764,3 +764,22 @@ async def test_several_tags_start_the_same_card(hass, reader, calls):
         assert calls["ma_play"][-1].data["media_id"] == "library://playlist/14"
     # the same card via another chip counts as the same card (history, resume)
     assert store.data["last_tag"] == "89-4A-71-E6"
+
+
+async def test_holding_play_pause_restarts_the_story(hass, reader, calls):
+    entry = await _setup(hass, reader)
+    await _scan(hass, reader, "AA-BB")
+    hass.states.async_set(PLAYER, "playing", {"media_content_id": SERIES[1], "media_position": 120})
+    await hass.async_block_till_done()
+    hass.states.async_set(PLAYER, "paused", {"media_content_id": SERIES[1], "media_position": 120})
+    await hass.async_block_till_done()
+    calls["seek"].clear()
+    hass.states.async_set("event.vordis_button", "2026-01-01T00:00:00", {"event_type": "restart"})
+    await hass.async_block_till_done()
+    assert calls["ma_play"][-1].data["media_id"] == SERIES  # all books, from the first
+    assert not calls["seek"]
+    assert not entry.runtime_data.store.data["positions"]
+    # the service does the same
+    await _scan(hass, reader, "89-4A-71-E6")
+    await hass.services.async_call(DOMAIN, "restart", {}, blocking=True)
+    assert calls["ma_play"][-1].data["media_id"] == "library://playlist/14"

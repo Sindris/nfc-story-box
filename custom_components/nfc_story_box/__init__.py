@@ -95,6 +95,10 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         DOMAIN, "play_card", play_card,
         schema=vol.Schema({vol.Required("card"): cv.string, vol.Optional("entry_id"): cv.string}),
     )
+    async def restart(call: ServiceCall) -> None:
+        await get_entry(hass, call.data.get("entry_id")).runtime_data.box.async_restart_card()
+
+    hass.services.async_register(DOMAIN, "restart", restart, schema=vol.Schema({vol.Optional("entry_id"): cv.string}))
     hass.services.async_register(DOMAIN, "stop", stop, schema=vol.Schema({vol.Optional("entry_id"): cv.string}))
 
     async def sleep_timer(call: ServiceCall) -> None:

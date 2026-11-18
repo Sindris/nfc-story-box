@@ -214,6 +214,16 @@
           "description": "Only needed with more than one box."
         }
       }
+    },
+    "restart": {
+      "name": "Play from the start",
+      "description": "Starts the card that is playing, or played last, again from the beginning (the same as holding the play/pause button down).",
+      "fields": {
+        "entry_id": {
+          "name": "Box",
+          "description": "Only needed with more than one box."
+        }
+      }
     }
   },
   "exceptions": {

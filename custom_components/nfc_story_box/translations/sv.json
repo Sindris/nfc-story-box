@@ -214,6 +214,16 @@
           "description": "Behövs bara med mer än en låda."
         }
       }
+    },
+    "restart": {
+      "name": "Spela från början",
+      "description": "Startar kortet som spelas, eller spelades senast, om från början (samma sak som att hålla play/paus-knappen nedtryckt).",
+      "fields": {
+        "entry_id": {
+          "name": "Låda",
+          "description": "Behövs bara med mer än en låda."
+        }
+      }
     }
   },
   "exceptions": {
