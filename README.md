@@ -7,6 +7,11 @@ managing the cards and printing labels for them with their cover art.
 
 The integration and cards are available in Icelandic, English and Swedish (they follow your Home Assistant language).
 
+![The box with its speaker and a pile of story and music cards](docs/images/box-and-cards.jpg)
+
+📖 **Want to build one?** The whole build (parts, wiring, the box, firmware and this integration) is written up
+on my blog: [Building Vordísarvarpið: An NFC Story Box for Kids](https://sindrieinarsson.se/vordisarvarpid-nfc-story-box/).
+
 ## What it does
 
 - **Plays the cards.** Listens for NFC tags scanned by the box (an ESPHome NFC reader) and plays the
@@ -40,6 +45,32 @@ The integration and cards are available in Icelandic, English and Swedish (they 
     start on a half-used sheet, PDF download (works in the Home Assistant app and without internet).
 - Everything is stored in Home Assistant (included in backups), so every device sees the same cards,
   label settings and print settings.
+
+## Screenshots
+
+The screenshots are from my own setup, with the interface in Icelandic.
+
+**Control panel:** what's playing, volume, quick-play cards, sleep timer, rules and the box's own settings.
+
+![Control panel](docs/images/control-panel.jpg)
+
+**Card page:** every card with its artwork, grouped into music and stories.
+
+![Card library](docs/images/card-library.jpg)
+
+**Setting up a card** and **printing labels**:
+
+<p>
+  <img src="docs/images/card-setup.jpg" alt="Card setup: an audiobook series with playback options" width="300">
+  &nbsp;
+  <img src="docs/images/print-labels.jpg" alt="Printing labels on HERMA 5028 sheets" width="300">
+</p>
+
+**Statistics:**
+
+![Statistics card](docs/images/statistics.jpg)
+
+<img src="docs/images/statistics-heatmap.jpg" alt="When the box is used, and stories in progress" width="300">
 
 ## Entities and actions
 
@@ -109,6 +140,25 @@ with a PN532 NFC reader on I²C (SDA GPIO4, SCL GPIO5), a passive buzzer on GPIO
 `wifi_password` in your ESPHome secrets. The device name `nfc-reader` is what the integration's automatic
 "play sound" lookup expects (`esphome.nfc_reader_play_sound`); change it together with the sound action setting. Adding an `api: encryption:` key and an `ota: password:` is
 recommended.
+
+### Wiring
+
+![Wiring diagram](docs/images/wiring-diagram.png)
+
+The diagram puts the play/pause and next buttons on **D7 (GPIO13)** and **RX (GPIO3)** instead of D4 and D3.
+D3 and D4 are boot pins, so holding one of those buttons while the box powers up stops it from starting.
+If you wire it like the diagram, change the two button pins in the YAML and set `logger: baud_rate: 0`
+(RX is the serial port). The ground wires are daisy-chained through the PN532's second GND pin.
+
+<p>
+  <img src="docs/images/bench-test.jpg" alt="The first bench test" width="260">
+  &nbsp;
+  <img src="docs/images/lid-buttons.jpg" alt="The buttons mounted in the lid" width="260">
+  &nbsp;
+  <img src="docs/images/lid-decorated.jpg" alt="The finished, decorated lid" width="260">
+</p>
+
+More photos, the parts list and the full build are in the [blog post](https://sindrieinarsson.se/vordisarvarpid-nfc-story-box/).
 
 ## Credits
 
