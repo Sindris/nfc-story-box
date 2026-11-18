@@ -774,9 +774,11 @@ async def test_holding_play_pause_restarts_the_story(hass, reader, calls):
     hass.states.async_set(PLAYER, "paused", {"media_content_id": SERIES[1], "media_position": 120})
     await hass.async_block_till_done()
     calls["seek"].clear()
-    hass.states.async_set("event.vordis_button", "2026-01-01T00:00:00", {"event_type": "restart"})
+    hass.states.async_set("event.vordis_button", "2026-01-01T00:00:00", {"event_type": "next"})  # the first state is the box connecting
     await hass.async_block_till_done()
-    assert calls["ma_play"][-1].data["media_id"] == SERIES  # all books, from the first
+    hass.states.async_set("event.vordis_button", "2026-01-01T00:00:01", {"event_type": "restart"})
+    await hass.async_block_till_done()
+    assert len(calls["ma_play"]) == 2 and calls["ma_play"][-1].data["media_id"] == SERIES  # all books, from the first
     assert not calls["seek"]
     assert not entry.runtime_data.store.data["positions"]
     # the service does the same
