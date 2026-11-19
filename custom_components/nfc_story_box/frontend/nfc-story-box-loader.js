@@ -41,6 +41,12 @@ function define(tag, file, name, description) {
     }
 
     static getStubConfig() { return {}; }
+
+    // The form that replaces YAML in the dashboard editor
+    static async getConfigElement() {
+      await import(new URL("./nfc-story-box-editor.js" + HERE.search, HERE).href);
+      return document.createElement(tag + "-editor");
+    }
   }
 
   if (!customElements.get(tag)) {

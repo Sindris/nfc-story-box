@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.3.0
+
+Added
+- **Visual editor for both dashboard cards**: when you add or edit *NFC Story Box* or *NFC Story Box – statistics*
+  in the dashboard editor you now get a form (label text, default style, paper, title, days shown …) instead of
+  having to write YAML. English, Icelandic and Swedish.
+
 ## 2.2.0
 
 Added

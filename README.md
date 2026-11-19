@@ -95,7 +95,7 @@ integration has a diagnostics download.
 
 ## Statistics card
 
-Add it to any dashboard (a panel view works well):
+Add it to any dashboard (a panel view works well). Both cards have a visual editor, so you can set the options in a form instead of YAML:
 
 ```yaml
 type: custom:nfc-story-box-stats-card
